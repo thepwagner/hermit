@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"sync"
 
 	"github.com/go-logr/logr"
 )
@@ -88,7 +87,7 @@ func (p *Proxy) Close() error {
 }
 
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == "/.well-known/jonproxley/cert" {
+	if r.URL.Path == "/.well-known/hermit/proxy-cert" {
 		w.Header().Add("Content-Type", "application/x-pem-file")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(p.Certs.CertPEM())
@@ -128,12 +127,13 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		})
 		if err := tlsConn.Handshake(); err != nil {
 			p.log.Error(err, "proxy issue cert")
-			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-
 		defer tlsConn.Close()
-		h.ServeHTTP(newMitmResponseWriter(tlsConn), r)
+
+		wrapped, sig := wrapHandler(h)
+		http.Serve(newConnListener(tlsConn), wrapped)
+		<-sig
 		return
 	}
 
@@ -153,41 +153,42 @@ func (p *Proxy) handler(r *http.Request) http.Handler {
 	return nil
 }
 
-type mitmResponseWriter struct {
-	conn   net.Conn
-	res    *http.Response
-	header sync.Once
+type connListener struct {
+	conn chan net.Conn
 }
 
-func newMitmResponseWriter(conn net.Conn) *mitmResponseWriter {
-	return &mitmResponseWriter{
-		conn: conn,
-		res: &http.Response{
-			StatusCode: http.StatusOK,
-			Header:     make(http.Header),
-		},
+func newConnListener(c net.Conn) *connListener {
+	ch := make(chan net.Conn, 1)
+	ch <- c
+	return &connListener{conn: ch}
+}
+
+func (l *connListener) Accept() (c net.Conn, err error) {
+	c, ok := <-l.conn
+	if !ok {
+		err = errors.New("done")
 	}
+	return
 }
 
-func (m *mitmResponseWriter) Header() http.Header {
-	return m.res.Header
+func (l *connListener) Close() error {
+	return nil
 }
 
-func (m *mitmResponseWriter) WriteHeader(statusCode int) {
-	m.res.StatusCode = statusCode
-	m.writeHeader()
+func (l *connListener) Addr() net.Addr { return nil }
+
+func wrapHandler(h http.Handler) (http.Handler, <-chan struct{}) {
+	sig := make(chan struct{})
+	return &chanHandlerWrapper{h: h, signal: sig}, sig
 }
 
-func (m *mitmResponseWriter) writeHeader() {
-	m.header.Do(func() {
-		m.res.ProtoMajor = 1
-		m.res.ProtoMinor = 1
-		m.res.ContentLength = -1
-		_ = m.res.Write(m.conn)
-	})
+type chanHandlerWrapper struct {
+	signal chan struct{}
+	h      http.Handler
 }
 
-func (m *mitmResponseWriter) Write(b []byte) (int, error) {
-	m.writeHeader()
-	return m.conn.Write(b)
+func (c *chanHandlerWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Connection", "close")
+	c.h.ServeHTTP(w, r)
+	close(c.signal)
 }

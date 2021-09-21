@@ -15,6 +15,7 @@ import (
 )
 
 var teapot = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("handler")
 	w.WriteHeader(http.StatusTeapot)
 	fmt.Fprintln(w, `{"status":["short","stout"]}`)
 })
@@ -53,7 +54,7 @@ func TestProxy_Http(t *testing.T) {
 		res, err := c.Get("http://coffeepot")
 		require.NoError(t, err)
 		defer res.Body.Close()
-		require.Equal(t, http.StatusBadGateway, res.StatusCode)
+		require.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
 
 		b, err := ioutil.ReadAll(res.Body)
 		require.NoError(t, err)
