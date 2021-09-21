@@ -13,8 +13,8 @@ import (
 )
 
 func run(l logr.Logger) error {
-	deb, _ := url.Parse("http://deb.debian.org")
-	sec, _ := url.Parse("http://security.debian.org")
+	// deb, _ := url.Parse("http://deb.debian.org")
+	// sec, _ := url.Parse("http://security.debian.org")
 	ms, _ := url.Parse("https://packages.microsoft.com")
 	dockerauth, _ := url.Parse("https://auth.docker.io")
 
@@ -26,8 +26,8 @@ func run(l logr.Logger) error {
 	p, err := proxy.NewProxy(
 		proxy.ProxyWithLog(l),
 		proxy.ProxyWithAddr("0.0.0.0:3128"),
-		proxy.ProxyWithHost("deb.debian.org", httputil.NewSingleHostReverseProxy(deb)),
-		proxy.ProxyWithHost("security.debian.org", httputil.NewSingleHostReverseProxy(sec)),
+		proxy.ProxyWithHost("deb.debian.org", dh),
+		proxy.ProxyWithHost("security.debian.org", dh),
 		proxy.ProxyWithHost("packages.microsoft.com:443", httputil.NewSingleHostReverseProxy(ms)),
 		proxy.ProxyWithHost("auth.docker.io:443", httputil.NewSingleHostReverseProxy(dockerauth)),
 		proxy.ProxyWithHost("registry-1.docker.io:443", dh),

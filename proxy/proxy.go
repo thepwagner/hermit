@@ -117,44 +117,43 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.Method == http.MethodConnect {
-		host, port, err := net.SplitHostPort(r.Host)
-		if err != nil || port != "443" {
-			http.Error(w, "bad host", http.StatusServiceUnavailable)
-			return
-		}
-		cert, err := p.Certs.Issue(host)
-		if err != nil {
-			p.log.Error(err, "proxy issue cert")
-			http.Error(w, "could not issue certificate", http.StatusServiceUnavailable)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-
-		conn, _, err := w.(http.Hijacker).Hijack()
-		if err != nil {
-			p.log.Error(err, "proxy issue cert")
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		defer conn.Close()
-
-		tlsConn := tls.Server(conn, &tls.Config{
-			Certificates: []tls.Certificate{*cert},
-		})
-		if err := tlsConn.Handshake(); err != nil {
-			p.log.Error(err, "proxy issue cert")
-			return
-		}
-		defer tlsConn.Close()
-
-		wrapped, sig := wrapHandler(h)
-		http.Serve(newConnListener(tlsConn), wrapped)
-		<-sig
+	if r.Method != http.MethodConnect {
+		h.ServeHTTP(w, r)
+	}
+	host, port, err := net.SplitHostPort(r.Host)
+	if err != nil || port != "443" {
+		http.Error(w, "bad host", http.StatusServiceUnavailable)
 		return
 	}
+	cert, err := p.Certs.Issue(host)
+	if err != nil {
+		p.log.Error(err, "proxy issue cert")
+		http.Error(w, "could not issue certificate", http.StatusServiceUnavailable)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 
-	h.ServeHTTP(w, r)
+	conn, _, err := w.(http.Hijacker).Hijack()
+	if err != nil {
+		p.log.Error(err, "proxy issue cert")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	defer conn.Close()
+
+	tlsConn := tls.Server(conn, &tls.Config{
+		Certificates: []tls.Certificate{*cert},
+	})
+	if err := tlsConn.Handshake(); err != nil {
+		p.log.Error(err, "proxy issue cert")
+		return
+	}
+	defer tlsConn.Close()
+
+	wrapped, sig := wrapHandler(h, p.log.WithValues("host", host))
+	http.Serve(newConnListener(tlsConn), wrapped)
+	<-sig
+	return
 }
 
 func (p *Proxy) handler(r *http.Request) http.Handler {
@@ -192,18 +191,21 @@ func (l *connListener) Close() error {
 
 func (l *connListener) Addr() net.Addr { return nil }
 
-func wrapHandler(h http.Handler) (http.Handler, <-chan struct{}) {
+func wrapHandler(h http.Handler, log logr.Logger) (http.Handler, <-chan struct{}) {
 	sig := make(chan struct{})
-	return &chanHandlerWrapper{h: h, signal: sig}, sig
+	return &chanHandlerWrapper{h: h, signal: sig, log: log}, sig
 }
 
 type chanHandlerWrapper struct {
 	signal chan struct{}
+	log    logr.Logger
 	h      http.Handler
 }
 
 func (c *chanHandlerWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Connection", "close")
+	c.log.Info("intercepted request", "method", r.Method, "url", r.URL.String())
 	c.h.ServeHTTP(w, r)
-	close(c.signal)
+	if w.Header().Get("Connection") == "close" {
+		close(c.signal)
+	}
 }

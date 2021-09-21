@@ -2,32 +2,26 @@ package proxy
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
-	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
-	"github.com/distribution/distribution/v3/manifest/schema2"
 	"github.com/go-logr/logr"
 )
 
-var (
-	namePattern = regexp.MustCompile("[a-z0-9]+(?:[._-][a-z0-9]+)*(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)*")
-	manifest    = regexp.MustCompile(fmt.Sprintf(`^/v2/(%s)/manifests/([^/]+)$`, namePattern))
-	blobs       = regexp.MustCompile(fmt.Sprintf(`^/v2/(%s)/blobs/([^/]+)$`, namePattern))
-)
-
 type Docker struct {
-	log  logr.Logger
-	hub  http.Handler
-	http *http.Client
+	log   logr.Logger
+	proxy http.Handler
+	http  *http.Client
 
 	dir     string
 	capture bool
@@ -35,7 +29,6 @@ type Docker struct {
 }
 
 func NewDocker(log logr.Logger, dir string) (*Docker, error) {
-	hubURL, _ := url.Parse("https://registry.docker.io")
 	dir, err := filepath.Abs(dir)
 	if err != nil {
 		return nil, err
@@ -45,35 +38,22 @@ func NewDocker(log logr.Logger, dir string) (*Docker, error) {
 		dir:     dir,
 		capture: true,
 		http:    &http.Client{},
-		hub:     httputil.NewSingleHostReverseProxy(hubURL),
+		proxy: &httputil.ReverseProxy{
+			Director: func(r *http.Request) {},
+		},
 	}, nil
 }
 
 // https://github.com/opencontainers/distribution-spec/blob/main/spec.md#endpoints
 func (d *Docker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	d.log.Info("received request", "method", r.Method, "url", r.URL.String())
 	if r.URL.Path == "/v2/" {
 		apiVersionCheck(w)
 		return
 	}
 
-	if m := manifest.FindStringSubmatch(r.URL.Path); m != nil {
-		img := m[1]
-		ref := m[2]
-		if err := d.manifests(w, r, img, ref); err != nil {
-			d.log.Error(err, "handling manifest")
-			http.Error(w, "", http.StatusInternalServerError)
-		}
-		return
-	}
-
-	if m := blobs.FindStringSubmatch(r.URL.Path); m != nil {
-		img := m[1]
-		ref := m[2]
-		if err := d.blobs(w, r, img, ref); err != nil {
-			d.log.Error(err, "handling blob")
-			http.Error(w, "", http.StatusInternalServerError)
-		}
+	if err := d.blobs(w, r); err != nil {
+		d.log.Error(err, "handling blob")
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 }
@@ -83,46 +63,35 @@ func apiVersionCheck(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (d *Docker) manifests(w http.ResponseWriter, r *http.Request, img, ref string) error {
-	// Check local cache for manifest
-	mfPath, err := d.path(r.Host, img, "manifests", ref)
+func (d *Docker) blobs(w http.ResponseWriter, r *http.Request) error {
+	// Check local cache for resource
+	localPath, err := d.path(r.Host, r.URL.Path)
 	if err != nil {
 		return err
 	}
-	if f, err := os.Open(mfPath); err == nil {
-		d.log.Info("manifest found in cache", "path", mfPath)
+	if f, err := os.Open(localPath); err == nil {
+		d.log.Info("found in cache", "path", localPath)
 		defer f.Close()
 		if r.Method == http.MethodGet {
-			w.Header().Set("Content-Type", schema2.MediaTypeManifest)
+			b, err := ioutil.ReadFile(fmt.Sprintf("%s.meta.json", localPath))
+			if err == nil {
+				var meta ResponseMetadata
+				if err := json.Unmarshal(b, &meta); err == nil {
+					if meta.ContentType != "" {
+						w.Header().Set("Content-Type", meta.ContentType)
+					}
+				}
+			}
 			io.Copy(w, f)
 		}
 		return nil
 	}
-
-	w.Header().Set("Content-Type", schema2.MediaTypeManifest)
-	return d.captureResponse(w, r, mfPath)
+	d.log.Info("not found in cache", "path", localPath)
+	return d.captureResponse(w, r, localPath)
 }
 
-func (d *Docker) blobs(w http.ResponseWriter, r *http.Request, img, ref string) error {
-	// Check local cache for manifest
-	blobPath, err := d.path(r.Host, img, "blobs", ref)
-	if err != nil {
-		return err
-	}
-	if f, err := os.Open(blobPath); err == nil {
-		d.log.Info("blob found in cache", "path", blobPath)
-		defer f.Close()
-		if r.Method == http.MethodGet {
-			io.Copy(w, f)
-		}
-		return nil
-	}
-	d.log.Info("blob not found in cache", "path", blobPath)
-	return d.captureResponse(w, r, blobPath)
-}
-
-func (d *Docker) path(host, img, resource, ref string) (string, error) {
-	p := filepath.Join(d.dir, "docker", host, img, resource, ref)
+func (d *Docker) path(host, path string) (string, error) {
+	p := filepath.Join(d.dir, host, path)
 	if abs, err := filepath.Abs(p); err != nil {
 		return "", fmt.Errorf("resolving abs: %w", err)
 	} else if !strings.HasPrefix(abs, d.dir) {
@@ -131,15 +100,20 @@ func (d *Docker) path(host, img, resource, ref string) (string, error) {
 	return p, nil
 }
 
+type ResponseMetadata struct {
+	ContentType string `json:"contentType"`
+	Sha256      []byte `json:"sha256"`
+}
+
 func (d *Docker) captureResponse(w http.ResponseWriter, r *http.Request, path string) error {
 	// Direct proxy if not capturing
 	if !d.capture {
-		d.hub.ServeHTTP(w, r)
+		d.proxy.ServeHTTP(w, r)
 		return nil
 	}
 
 	bufW := httptest.NewRecorder()
-	d.hub.ServeHTTP(bufW, r)
+	d.proxy.ServeHTTP(bufW, r)
 	d.log.Info("proxied request", "url", r.URL.String(), "status", bufW.Code)
 	if bufW.Code == http.StatusTemporaryRedirect {
 		loc := bufW.Header().Get("Location")
@@ -155,16 +129,46 @@ func (d *Docker) captureResponse(w http.ResponseWriter, r *http.Request, path st
 		var buf bytes.Buffer
 		io.Copy(&buf, res.Body)
 		bufW.Code = res.StatusCode
+		h := bufW.Header()
+		for k, v := range res.Header {
+			h[k] = v
+		}
 		bufW.Body = &buf
 	}
 
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
-	if err != nil {
-		return fmt.Errorf("capturing resource: %w", err)
-	}
-	defer f.Close()
+	var out io.Writer
+	if r.Method == http.MethodGet {
+		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+			return fmt.Errorf("capturing resource: %w", err)
+		}
 
+		h := sha256.New()
+		h.Write(bufW.Body.Bytes())
+
+		meta, err := json.Marshal(&ResponseMetadata{
+			ContentType: bufW.Header().Get("Content-Type"),
+			Sha256:      h.Sum(nil),
+		})
+		if err := ioutil.WriteFile(fmt.Sprintf("%s.meta.json", path), meta, 0600); err != nil {
+			return fmt.Errorf("capturing resource meta: %w", err)
+		}
+
+		f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+		if err != nil {
+			return fmt.Errorf("capturing resource: %w", err)
+		}
+		defer f.Close()
+		out = io.MultiWriter(f, w)
+		d.log.Info("captured resource", "code", bufW.Code, "path", path, "len", len(bufW.Body.Bytes()))
+	} else {
+		out = w
+	}
+
+	h := w.Header()
+	for k, v := range bufW.Header() {
+		h[k] = v
+	}
 	w.WriteHeader(bufW.Code)
-	io.MultiWriter(f, w).Write(bufW.Body.Bytes())
+	out.Write(bufW.Body.Bytes())
 	return nil
 }
