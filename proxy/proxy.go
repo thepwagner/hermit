@@ -2,8 +2,10 @@ package proxy
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -22,7 +24,18 @@ type Proxy struct {
 }
 
 func NewProxy(opts ...ProxyOpt) (*Proxy, error) {
-	pk, err := PrivateKey()
+	// pk, err := PrivateKey()
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// b, _ := x509.MarshalECPrivateKey(pk)
+	// _ = ioutil.WriteFile("key.der", b, 0600)
+
+	b, err := ioutil.ReadFile("key.der")
+	if err != nil {
+		return nil, err
+	}
+	pk, err := x509.ParseECPrivateKey(b)
 	if err != nil {
 		return nil, err
 	}
@@ -40,6 +53,8 @@ func NewProxy(opts ...ProxyOpt) (*Proxy, error) {
 	for _, opt := range opts {
 		opt(p)
 	}
+	keyID := fmt.Sprintf("%x", pk.PublicKey.X.Bytes())
+	p.log.Info("certificate issuer", "key", keyID)
 
 	l, err := net.Listen("tcp4", p.addr)
 	if err != nil {
@@ -87,6 +102,8 @@ func (p *Proxy) Close() error {
 }
 
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	p.log.Info("received request", "method", r.Method, "url", r.URL.String())
+
 	if r.URL.Path == "/.well-known/hermit/proxy-cert" {
 		w.Header().Add("Content-Type", "application/x-pem-file")
 		w.WriteHeader(http.StatusOK)
@@ -142,11 +159,9 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (p *Proxy) handler(r *http.Request) http.Handler {
 	if h, ok := p.hosts[r.Host]; ok {
-		p.log.Info("proxy by host", "host", r.Host)
 		return h
 	}
 	if h, ok := p.hosts["*"]; ok {
-		p.log.Info("proxy by wildcard", "host", r.Host)
 		return h
 	}
 	p.log.Info("proxy rejected", "host", r.Host)
