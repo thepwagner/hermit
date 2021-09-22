@@ -3,7 +3,6 @@ module github.com/thepwagner/hermit
 go 1.17
 
 require (
-	github.com/distribution/distribution/v3 v3.0.0-20210921140121-a60a3f69eb54
 	github.com/go-logr/logr v1.1.0
 	github.com/moby/buildkit v0.9.0
 	github.com/rs/zerolog v1.25.0
