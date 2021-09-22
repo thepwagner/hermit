@@ -16,14 +16,14 @@ import (
 type Proxy struct {
 	addr string
 
-	log   logr.Logger
-	srv   *http.Server
-	url   *url.URL
-	hosts map[string]http.Handler
-	Certs *CertIssuer
+	log         logr.Logger
+	srv         *http.Server
+	url         *url.URL
+	Certs       *CertIssuer
+	Snapshotter *Snapshotter
 }
 
-func NewProxy(opts ...ProxyOpt) (*Proxy, error) {
+func NewProxy(snap *Snapshotter, opts ...ProxyOpt) (*Proxy, error) {
 	// pk, err := PrivateKey()
 	// if err != nil {
 	// 	return nil, err
@@ -45,10 +45,10 @@ func NewProxy(opts ...ProxyOpt) (*Proxy, error) {
 	}
 
 	p := &Proxy{
-		log:   logr.Discard(),
-		addr:  "localhost:0",
-		hosts: map[string]http.Handler{},
-		Certs: certs,
+		log:         logr.Discard(),
+		addr:        "localhost:0",
+		Certs:       certs,
+		Snapshotter: snap,
 	}
 	for _, opt := range opts {
 		opt(p)
@@ -86,12 +86,6 @@ func ProxyWithAddr(addr string) ProxyOpt {
 	}
 }
 
-func ProxyWithHost(host string, handler http.Handler) ProxyOpt {
-	return func(p *Proxy) {
-		p.hosts[host] = handler
-	}
-}
-
 func (p *Proxy) URL() *url.URL {
 	return p.url
 }
@@ -111,15 +105,11 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h := p.handler(r)
-	if h == nil {
-		http.Error(w, "invalid host", http.StatusServiceUnavailable)
+	if r.Method != http.MethodConnect {
+		p.Snapshotter.ServeHTTP(w, r)
 		return
 	}
 
-	if r.Method != http.MethodConnect {
-		h.ServeHTTP(w, r)
-	}
 	host, port, err := net.SplitHostPort(r.Host)
 	if err != nil || port != "443" {
 		http.Error(w, "bad host", http.StatusServiceUnavailable)
@@ -150,21 +140,10 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tlsConn.Close()
 
-	wrapped, sig := wrapHandler(h, p.log.WithValues("host", host))
+	wrapped, sig := p.signallingHandler(p.Snapshotter, host)
 	http.Serve(newConnListener(tlsConn), wrapped)
 	<-sig
 	return
-}
-
-func (p *Proxy) handler(r *http.Request) http.Handler {
-	if h, ok := p.hosts[r.Host]; ok {
-		return h
-	}
-	if h, ok := p.hosts["*"]; ok {
-		return h
-	}
-	p.log.Info("proxy rejected", "host", r.Host)
-	return nil
 }
 
 type connListener struct {
@@ -191,18 +170,22 @@ func (l *connListener) Close() error {
 
 func (l *connListener) Addr() net.Addr { return nil }
 
-func wrapHandler(h http.Handler, log logr.Logger) (http.Handler, <-chan struct{}) {
+func (p *Proxy) signallingHandler(h http.Handler, host string) (http.Handler, <-chan struct{}) {
 	sig := make(chan struct{})
-	return &chanHandlerWrapper{h: h, signal: sig, log: log}, sig
+	return &chanHandlerWrapper{h: h, signal: sig, log: p.log, host: host}, sig
 }
 
 type chanHandlerWrapper struct {
 	signal chan struct{}
 	log    logr.Logger
+	host   string
 	h      http.Handler
 }
 
 func (c *chanHandlerWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	r.URL.Scheme = "https"
+	r.URL.Host = c.host
+	r.Host = c.host
 	c.log.Info("intercepted request", "method", r.Method, "url", r.URL.String())
 	c.h.ServeHTTP(w, r)
 	if w.Header().Get("Connection") == "close" {

@@ -1,8 +1,6 @@
 package main
 
 import (
-	"net/http/httputil"
-	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,24 +11,17 @@ import (
 )
 
 func run(l logr.Logger) error {
-	// deb, _ := url.Parse("http://deb.debian.org")
-	// sec, _ := url.Parse("http://security.debian.org")
-	ms, _ := url.Parse("https://packages.microsoft.com")
-	dockerauth, _ := url.Parse("https://auth.docker.io")
-
-	dh, err := proxy.NewDocker(l, "./cage")
-	if err != nil {
-		return err
-	}
+	snap := proxy.NewSnapshot("cage/blobs")
+	defer snap.Save("cage/index")
+	// snap, err := proxy.LoadSnapshot("cage/blobs", "cage/index/be5926419d6ba5f3bc5d00480f8843134f078836c7f8ea99e13a216dca47a68b.json")
+	// if err != nil {
+	// 	return err
+	// }
 
 	p, err := proxy.NewProxy(
+		proxy.NewSnapshotter(l, snap),
 		proxy.ProxyWithLog(l),
 		proxy.ProxyWithAddr("0.0.0.0:3128"),
-		proxy.ProxyWithHost("deb.debian.org", dh),
-		proxy.ProxyWithHost("security.debian.org", dh),
-		proxy.ProxyWithHost("packages.microsoft.com:443", httputil.NewSingleHostReverseProxy(ms)),
-		proxy.ProxyWithHost("auth.docker.io:443", httputil.NewSingleHostReverseProxy(dockerauth)),
-		proxy.ProxyWithHost("registry-1.docker.io:443", dh),
 	)
 	if err != nil {
 		return err
