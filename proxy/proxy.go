@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"crypto/ecdsa"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -14,12 +15,13 @@ import (
 )
 
 type Proxy struct {
+	log  logr.Logger
 	addr string
+	pk   *ecdsa.PrivateKey
 
-	log         logr.Logger
 	srv         *http.Server
 	url         *url.URL
-	Certs       *CertIssuer
+	certs       *CertIssuer
 	Snapshotter *Snapshotter
 }
 
@@ -39,22 +41,21 @@ func NewProxy(snap *Snapshotter, opts ...ProxyOpt) (*Proxy, error) {
 	if err != nil {
 		return nil, err
 	}
-	certs, err := NewCertIssuer(pk)
-	if err != nil {
-		return nil, err
-	}
 
 	p := &Proxy{
 		log:         logr.Discard(),
 		addr:        "localhost:0",
-		Certs:       certs,
 		Snapshotter: snap,
 	}
 	for _, opt := range opts {
 		opt(p)
 	}
-	keyID := fmt.Sprintf("%x", pk.PublicKey.X.Bytes())
-	p.log.Info("certificate issuer", "key", keyID)
+	certs, err := NewCertIssuer(pk)
+	if err != nil {
+		return nil, err
+	}
+	p.certs = certs
+	p.log.Info("certificate issuer", "key", fmt.Sprintf("%x", pk.PublicKey.X.Bytes()))
 
 	l, err := net.Listen("tcp4", p.addr)
 	if err != nil {
@@ -86,6 +87,12 @@ func ProxyWithAddr(addr string) ProxyOpt {
 	}
 }
 
+func ProxyWithPrivateKey(pk *ecdsa.PrivateKey) ProxyOpt {
+	return func(p *Proxy) {
+		p.pk = pk
+	}
+}
+
 func (p *Proxy) URL() *url.URL {
 	return p.url
 }
@@ -101,7 +108,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/.well-known/hermit/proxy-cert" {
 		w.Header().Add("Content-Type", "application/x-pem-file")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(p.Certs.CertPEM())
+		_, _ = w.Write(p.certs.CertPEM())
 		return
 	}
 
@@ -115,7 +122,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad host", http.StatusServiceUnavailable)
 		return
 	}
-	cert, err := p.Certs.Issue(host)
+	cert, err := p.certs.Issue(host)
 	if err != nil {
 		p.log.Error(err, "proxy issue cert")
 		http.Error(w, "could not issue certificate", http.StatusServiceUnavailable)

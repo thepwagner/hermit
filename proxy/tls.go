@@ -9,6 +9,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"io/ioutil"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -19,6 +20,22 @@ func PrivateKey() (*ecdsa.PrivateKey, error) {
 	// why not rsa? performance
 	// why not ed25519? i fear compatibility
 	return ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+}
+
+func SavePrivateKey(pk *ecdsa.PrivateKey, derPath string) error {
+	b, err := x509.MarshalECPrivateKey(pk)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(derPath, b, 0600)
+}
+
+func LoadPrivateKey(derPath string) (*ecdsa.PrivateKey, error) {
+	b, err := ioutil.ReadFile(derPath)
+	if err != nil {
+		return nil, err
+	}
+	return x509.ParseECPrivateKey(b)
 }
 
 type CertIssuer struct {
