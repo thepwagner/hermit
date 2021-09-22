@@ -37,6 +37,12 @@ func (s *Snapshotter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if stored := s.snap.Get(key); stored != nil {
 		if r.Method == http.MethodGet {
 			w.Header().Set("Content-Type", stored.ContentType)
+			b, err := s.snap.Content(stored)
+			if err != nil {
+				s.log.Error(err, "failed to get content")
+				return
+			}
+			w.Write(b)
 		}
 		return
 	}

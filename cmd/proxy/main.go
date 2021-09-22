@@ -11,12 +11,12 @@ import (
 )
 
 func run(l logr.Logger) error {
-	snap := proxy.NewSnapshot("cage/blobs")
-	defer snap.Save("cage/index")
-	// snap, err := proxy.LoadSnapshot("cage/blobs", "cage/index/be5926419d6ba5f3bc5d00480f8843134f078836c7f8ea99e13a216dca47a68b.json")
-	// if err != nil {
-	// 	return err
-	// }
+	// snap := proxy.NewSnapshot("cage/blobs")
+	// defer snap.Save("cage/index")
+	snap, err := proxy.LoadSnapshot("cage/blobs", "cage/index/d68fedc58f95e419f2215491eb1f3f2e09eb260227c51d2979b7597ac4b6471c.json")
+	if err != nil {
+		return err
+	}
 
 	p, err := proxy.NewProxy(
 		proxy.NewSnapshotter(l, snap),

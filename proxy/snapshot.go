@@ -44,7 +44,7 @@ func (s *Snapshot) Get(key string) *URLData {
 }
 
 func (s *Snapshot) Content(data *URLData) ([]byte, error) {
-	return ioutil.ReadFile(filepath.Join(s.blobDir, fmt.Sprintf("%x", data.Sha256)))
+	return ioutil.ReadFile(filepath.Join(s.blobDir, data.Sha256))
 }
 
 func (s *Snapshot) Set(key string, data *URLData, content []byte) error {
@@ -75,6 +75,6 @@ func (s *Snapshot) Save(dir string) error {
 }
 
 type URLData struct {
-	ContentType string `json:"contentType"`
+	ContentType string `json:"contentType,omitempty"`
 	Sha256      string `json:"sha256"`
 }
