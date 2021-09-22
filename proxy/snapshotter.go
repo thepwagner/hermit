@@ -12,19 +12,21 @@ import (
 )
 
 type Snapshotter struct {
-	log  logr.Logger
-	snap *Snapshot
+	log     logr.Logger
+	snap    *Snapshot
+	storage Storage
 
 	capturing bool
 	proxy     *httputil.ReverseProxy
 	http      *http.Client
 }
 
-func NewSnapshotter(log logr.Logger, snap *Snapshot) *Snapshotter {
+func NewSnapshotter(log logr.Logger, snap *Snapshot, storage Storage) *Snapshotter {
 	return &Snapshotter{
-		log:  log,
-		snap: snap,
-		http: &http.Client{},
+		log:     log,
+		snap:    snap,
+		storage: storage,
+		http:    &http.Client{},
 		proxy: &httputil.ReverseProxy{
 			Director: func(r *http.Request) {},
 		},
@@ -37,12 +39,13 @@ func (s *Snapshotter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if stored := s.snap.Get(key); stored != nil {
 		if r.Method == http.MethodGet {
 			w.Header().Set("Content-Type", stored.ContentType)
-			b, err := s.snap.Content(stored)
+			b, err := s.storage.Load(stored)
 			if err != nil {
 				s.log.Error(err, "failed to get content")
 				return
 			}
-			w.Write(b)
+			defer b.Close()
+			io.Copy(w, b)
 		}
 		return
 	}
@@ -70,13 +73,12 @@ func (s *Snapshotter) captureResponse(w http.ResponseWriter, r *http.Request, ke
 	}
 
 	if r.Method == http.MethodGet {
-		data := &URLData{
-			ContentType: bufW.Header().Get("Content-Type"),
-		}
-		if err := s.snap.Set(key, data, bufW.Body.Bytes()); err != nil {
+		data := NewURLData(bufW)
+		s.snap.Set(key, data)
+
+		if err := s.storage.Store(data, bufW.Body.Bytes()); err != nil {
 			return err
 		}
-
 		s.log.Info("captured resource", "code", bufW.Code, "len", len(bufW.Body.Bytes()))
 	}
 

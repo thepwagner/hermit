@@ -12,18 +12,15 @@ import (
 type Snapshot struct {
 	mu   sync.RWMutex
 	Data map[string]*URLData `json:"data"`
-
-	blobDir string
 }
 
-func NewSnapshot(blobDir string) *Snapshot {
+func NewSnapshot() *Snapshot {
 	return &Snapshot{
-		blobDir: blobDir,
-		Data:    make(map[string]*URLData),
+		Data: make(map[string]*URLData),
 	}
 }
 
-func LoadSnapshot(blobDir string, index string) (*Snapshot, error) {
+func LoadSnapshot(index string) (*Snapshot, error) {
 	b, err := ioutil.ReadFile(index)
 	if err != nil {
 		return nil, err
@@ -32,7 +29,7 @@ func LoadSnapshot(blobDir string, index string) (*Snapshot, error) {
 	if err := json.Unmarshal(b, &data); err != nil {
 		return nil, err
 	}
-	s := NewSnapshot(blobDir)
+	s := NewSnapshot()
 	s.Data = data
 	return s, nil
 }
@@ -43,21 +40,13 @@ func (s *Snapshot) Get(key string) *URLData {
 	return s.Data[key]
 }
 
-func (s *Snapshot) Content(data *URLData) ([]byte, error) {
-	return ioutil.ReadFile(filepath.Join(s.blobDir, data.Sha256))
-}
-
-func (s *Snapshot) Set(key string, data *URLData, content []byte) error {
+func (s *Snapshot) Set(key string, data *URLData) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.Data[key] = data
-
-	h := sha256.New()
-	h.Write(content)
-	data.Sha256 = fmt.Sprintf("%x", h.Sum(nil))
-	return ioutil.WriteFile(filepath.Join(s.blobDir, data.Sha256), content, 0600)
 }
 
+// Save writes this snapshot to a unique filename within the given directory
 func (s *Snapshot) Save(dir string) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -72,9 +61,4 @@ func (s *Snapshot) Save(dir string) error {
 
 	fn := filepath.Join(dir, fmt.Sprintf("%x.json", sha))
 	return ioutil.WriteFile(fn, b, 0600)
-}
-
-type URLData struct {
-	ContentType string `json:"contentType,omitempty"`
-	Sha256      string `json:"sha256"`
 }

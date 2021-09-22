@@ -11,15 +11,21 @@ import (
 )
 
 func run(l logr.Logger) error {
-	// snap := proxy.NewSnapshot("cage/blobs")
-	// defer snap.Save("cage/index")
-	snap, err := proxy.LoadSnapshot("cage/blobs", "cage/index/d68fedc58f95e419f2215491eb1f3f2e09eb260227c51d2979b7597ac4b6471c.json")
+	pk, err := proxy.LoadPrivateKey("key.der")
 	if err != nil {
 		return err
 	}
 
+	// snap := proxy.NewSnapshot("cage/blobs")
+	// defer snap.Save("cage/index")
+	snap, err := proxy.LoadSnapshot("cage/index/d68fedc58f95e419f2215491eb1f3f2e09eb260227c51d2979b7597ac4b6471c.json")
+	if err != nil {
+		return err
+	}
+	storage := proxy.NewFileStorage(l, "cage/blobs")
 	p, err := proxy.NewProxy(
-		proxy.NewSnapshotter(l, snap),
+		proxy.NewSnapshotter(l, snap, storage),
+		proxy.ProxyWithPrivateKey(pk),
 		proxy.ProxyWithLog(l),
 		proxy.ProxyWithAddr("0.0.0.0:3128"),
 	)
