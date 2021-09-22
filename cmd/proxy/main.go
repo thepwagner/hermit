@@ -16,12 +16,13 @@ func run(l logr.Logger) error {
 		return err
 	}
 
-	// snap := proxy.NewSnapshot("cage/blobs")
-	// defer snap.Save("cage/index")
-	snap, err := proxy.LoadSnapshot("cage/index/d68fedc58f95e419f2215491eb1f3f2e09eb260227c51d2979b7597ac4b6471c.json")
+	// snap := proxy.NewSnapshot()
+	snap, err := proxy.LoadSnapshot("cage/index/6a11d7f3641af775ffd8a761cfb2425c51242d389eb9b6dd82e949d6cc7b04da.json")
 	if err != nil {
 		return err
 	}
+	defer snap.Save("cage/index")
+
 	storage := proxy.NewFileStorage(l, "cage/blobs")
 	p, err := proxy.NewProxy(
 		proxy.NewSnapshotter(l, snap, storage),
