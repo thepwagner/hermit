@@ -1,0 +1,6 @@
+#!/bin/bash
+set -e
+
+ROOT=$(cd "$(dirname "$0")/.."; pwd)
+
+sudo buildctl build --frontend dockerfile.v0 --local context="$ROOT/vm/kernel" --local dockerfile="$ROOT/vm/kernel"

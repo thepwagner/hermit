@@ -1,0 +1,18 @@
+#!/bin/bash
+set -e
+
+ROOT=$(cd "$(dirname "$0")/.."; pwd)
+
+mkdir -p "$ROOT/tmp"
+ROOT_IMG="$ROOT/tmp/root.img"
+
+rm -f "$ROOT_IMG"
+truncate -s 512M "$ROOT_IMG"
+/sbin/mkfs.ext4 -m 0 "$ROOT_IMG"
+
+BUILD_DIR=$(mktemp -d -p "$ROOT/tmp")
+sudo mount -o loop "$ROOT_IMG" "$BUILD_DIR"
+trap 'sudo umount "$BUILD_DIR"; rm -Rf "$BUILD_DIR"' EXIT
+set -x
+
+sudo buildctl build --frontend dockerfile.v0 --local context="$ROOT/vm" --local dockerfile="$ROOT/vm" --output "type=local,dest=$BUILD_DIR"
