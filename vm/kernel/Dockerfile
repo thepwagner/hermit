@@ -1,17 +1,14 @@
-FROM debian:bullseye-slim
+FROM alpine:3.14.2
 
-RUN echo "deb-src http://deb.debian.org/debian bullseye main" >> /etc/apt/sources.list
-RUN echo "deb-src http://security.debian.org/debian-security bullseye-security main" >> /etc/apt/sources.list
-RUN apt-get update
-RUN apt-get install -y build-essential fakeroot
-RUN apt-get build-dep -y linux
+RUN apk update
+RUN apk add alpine-sdk bison curl flex 
 
 WORKDIR /build
 RUN chown nobody /build
 USER nobody
-RUN apt-get source linux
+RUN curl -L https://github.com/torvalds/linux/archive/refs/tags/v5.14.tar.gz | tar -xz
 
-COPY config /build/linux-5.10.46/.config
-WORKDIR /build/linux-5.10.46
+WORKDIR /build/linux-5.14
+COPY config .config
 RUN make oldconfig
-RUN make -j8 vmlinux
+ RUN make -j8 vmlinux
