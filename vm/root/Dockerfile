@@ -1,5 +1,12 @@
-FROM debian:bullseye-slim
+FROM golang:1.17@sha256:285cf0cb73ab995caee61b900b2be123cd198f3541ce318c549ea5ff9832bdf0 AS builder
 
+WORKDIR /build
+COPY go.mod go.mod .
+RUN go mod download
+COPY . .
+RUN go build -o /guest ./cmd/guest
+
+FROM debian:bullseye-slim@sha256:e3ed4be20c22a1358020358331d177aa2860632f25b21681d79204ace20455a6
 RUN apt-get update && apt-get install -y \
   curl \
   systemd-sysv \
@@ -32,12 +39,12 @@ RUN curl -Lo /tmp/buildkit.tgz "https://github.com/moby/buildkit/releases/downlo
     tar -xzvvf /tmp/buildkit.tgz -C "/usr/local/bin" --strip-components=1 && \
     rm -f /tmp/buildkit.tgz
 
-COPY containerd.service /etc/systemd/system/containerd.service
-COPY containerd.toml /etc/containerd.toml
+COPY vm/root/containerd.service /etc/systemd/system/containerd.service
+COPY vm/root/containerd.toml /etc/containerd.toml
 RUN systemctl enable containerd.service
 
-COPY buildkit.service /etc/systemd/system/buildkit.service
-COPY buildkit.socket /etc/systemd/system/buildkit.socket
+COPY vm/root/buildkit.service /etc/systemd/system/buildkit.service
+COPY vm/root/buildkit.socket /etc/systemd/system/buildkit.socket
 RUN systemctl enable buildkit.service
 
 RUN systemctl mask getty@tty2.service
@@ -50,3 +57,5 @@ RUN echo "sandbox" > /etc/hostname
 
 # FIXME: testing, not a backdoor i promise
 RUN echo 'root:root' | chpasswd
+
+COPY --from=builder /guest /usr/local/bin/guest

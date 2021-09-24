@@ -15,4 +15,4 @@ sudo mount -o loop "$ROOT_IMG" "$BUILD_DIR"
 trap 'sudo umount "$BUILD_DIR"; rm -Rf "$BUILD_DIR"' EXIT
 set -x
 
-sudo buildctl build --frontend dockerfile.v0 --local context="$ROOT/vm/root" --local dockerfile="$ROOT/vm/root" --output "type=local,dest=$BUILD_DIR"
+sudo buildctl build --frontend dockerfile.v0 --local context="$ROOT" --local dockerfile="$ROOT/vm/root" --output "type=local,dest=$BUILD_DIR"

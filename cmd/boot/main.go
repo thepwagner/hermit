@@ -17,12 +17,19 @@ func run(l logr.Logger) error {
 	cfg := firecracker.Config{
 		SocketPath:      socketPath,
 		KernelImagePath: "/home/pwagner/git/thepwagner/hermit/tmp/kernel/vmlinux",
-		KernelArgs:      "console=ttyS0 noapic reboot=k panic=1 pci=off random.trust_cpu=on nomodules",
+		KernelArgs:      "console=ttyS0 noapic reboot=k panic=1 pci=off random.trust_cpu=on nomodules quiet",
 		Drives:          firecracker.NewDrivesBuilder("/home/pwagner/git/thepwagner/hermit/tmp/root.img").Build(),
 		MachineCfg: models.MachineConfiguration{
 			VcpuCount:  firecracker.Int64(1),
 			MemSizeMib: firecracker.Int64(512),
 			HtEnabled:  firecracker.Bool(true),
+		},
+		VsockDevices: []firecracker.VsockDevice{
+			{
+				ID:   "test",
+				Path: "/tmp/firecracker-vsock.sock",
+				CID:  3,
+			},
 		},
 	}
 	ctx := context.Background()
