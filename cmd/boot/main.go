@@ -16,10 +16,9 @@ func run(l logr.Logger) error {
 
 	cfg := firecracker.Config{
 		SocketPath:      socketPath,
-		KernelImagePath: "/home/pwagner/git/thepwagner/hermit/tmp/hello-vmlinux.bin",
-		KernelArgs:      "console=ttyS0 noapic reboot=k panic=1 pci=off",
-		// InitrdPath: 	"/home/pwagner/git/thepwagner/hermit/tmp/hello-initrd.img",
-		Drives: firecracker.NewDrivesBuilder("/home/pwagner/git/thepwagner/hermit/tmp/root.img").Build(),
+		KernelImagePath: "/home/pwagner/git/thepwagner/hermit/tmp/kernel/vmlinux",
+		KernelArgs:      "console=ttyS0 noapic reboot=k panic=1 pci=off quiet",
+		Drives:          firecracker.NewDrivesBuilder("/home/pwagner/git/thepwagner/hermit/tmp/root.img").Build(),
 		MachineCfg: models.MachineConfiguration{
 			VcpuCount:  firecracker.Int64(1),
 			MemSizeMib: firecracker.Int64(512),
@@ -34,6 +33,7 @@ func run(l logr.Logger) error {
 		WithSocketPath(socketPath).
 		WithStdout(os.Stdout).
 		WithStderr(os.Stderr).
+		WithStdin(os.Stdin).
 		Build(ctx)
 
 	m, err := firecracker.NewMachine(ctx, cfg, firecracker.WithProcessRunner(cmd))

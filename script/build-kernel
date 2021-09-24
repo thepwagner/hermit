@@ -2,5 +2,12 @@
 set -e
 
 ROOT=$(cd "$(dirname "$0")/.."; pwd)
+BUILD_DIR="$ROOT/tmp/kernel"
+mkdir -p "$BUILD_DIR"
 
-sudo buildctl build --frontend dockerfile.v0 --local context="$ROOT/vm/kernel" --local dockerfile="$ROOT/vm/kernel"
+sudo buildctl build \
+  --frontend dockerfile.v0 \
+  --local context="$ROOT/vm/kernel" \
+  --local dockerfile="$ROOT/vm/kernel" \
+  --output "type=local,dest=$BUILD_DIR" \
+  --progress plain
