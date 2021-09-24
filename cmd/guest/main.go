@@ -9,8 +9,14 @@ import (
 	"github.com/thepwagner/hermit/log"
 )
 
+const (
+	bindAddress    = "127.0.0.1:3128"
+	vsockHost      = 2
+	vsockProxyPort = 1024
+)
+
 func run(log logr.Logger) error {
-	l, err := net.Listen("tcp", "localhost:3128")
+	l, err := net.Listen("tcp4", bindAddress)
 	if err != nil {
 		return err
 	}
@@ -19,18 +25,25 @@ func run(log logr.Logger) error {
 		if err != nil {
 			return err
 		}
-		log.Info("accepted connection", "addr", c.RemoteAddr())
-
-		s, err := vsock.Dial(2, 1024)
-		if err != nil {
-			return err
-		}
-		defer s.Close()
-		log.Info("made connection", "remote_addr", c.RemoteAddr(), "local_addr", c.LocalAddr())
-		go io.Copy(c, s)
-		go io.Copy(s, c)
+		log.Info("accepted tcp connection", "addr", c.RemoteAddr().String())
+		go handle(log, c)
 	}
 	return nil
+}
+
+func handle(log logr.Logger, c net.Conn) {
+	s, err := vsock.Dial(vsockHost, vsockProxyPort)
+	if err != nil {
+		log.Error(err, "opening vsock")
+		return
+	}
+	defer s.Close()
+
+	localAddr := s.LocalAddr().String()
+	log.Info("made connection", "remote_addr", s.RemoteAddr().String(), "local_addr", localAddr)
+	go io.Copy(c, s)
+	io.Copy(s, c)
+	log.Info("closed connection", "remote_addr", s.RemoteAddr().String(), "local_addr", localAddr)
 }
 
 func main() {

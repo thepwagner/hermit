@@ -12,7 +12,10 @@ import (
 )
 
 func run(l logr.Logger) error {
-	const socketPath = "/tmp/firecracker.sock"
+	const (
+		socketPath = "/tmp/firecracker.sock"
+		vsockPath  = "/tmp/firecracker-vsock.sock"
+	)
 
 	cfg := firecracker.Config{
 		SocketPath:      socketPath,
@@ -27,13 +30,14 @@ func run(l logr.Logger) error {
 		VsockDevices: []firecracker.VsockDevice{
 			{
 				ID:   "test",
-				Path: "/tmp/firecracker-vsock.sock",
+				Path: vsockPath,
 				CID:  3,
 			},
 		},
 	}
-	ctx := context.Background()
+	defer os.Remove(vsockPath)
 
+	ctx := context.Background()
 	cmd := firecracker.VMCommandBuilder{}.
 		WithBin("firecracker").
 		WithSocketPath(socketPath).

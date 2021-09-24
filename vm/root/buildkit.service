@@ -5,6 +5,8 @@ After=buildkit.socket
 
 [Service]
 ExecStart=/usr/local/bin/buildkitd --addr fd:// --oci-worker=false --containerd-worker=true
+Environment=http_proxy=http://127.0.0.1:3128
+Environment=https_proxy=http://127.0.0.1:3128
 
 [Install]
 WantedBy=multi-user.target

@@ -1,0 +1,8 @@
+[Unit]
+Description=Guest Proxy
+
+[Service]
+ExecStart=/usr/local/bin/guest
+
+[Install]
+WantedBy=multi-user.target

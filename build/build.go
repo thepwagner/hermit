@@ -38,8 +38,8 @@ func (b *Builder) Build(ctx context.Context, path string) error {
 	solveOpt := buildkit.SolveOpt{
 		Frontend: "dockerfile.v0",
 		FrontendAttrs: map[string]string{
-			"build-arg:http_proxy":  "http://localhost:3128",
-			"build-arg:https_proxy": "http://localhost:3128",
+			"build-arg:http_proxy":  "http://127.0.0.1:3128",
+			"build-arg:https_proxy": "http://127.0.0.1:3128",
 		},
 		LocalDirs: map[string]string{
 			builder.DefaultLocalNameContext:    path,
