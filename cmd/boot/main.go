@@ -17,7 +17,7 @@ func run(l logr.Logger) error {
 	cfg := firecracker.Config{
 		SocketPath:      socketPath,
 		KernelImagePath: "/home/pwagner/git/thepwagner/hermit/tmp/kernel/vmlinux",
-		KernelArgs:      "console=ttyS0 noapic reboot=k panic=1 pci=off quiet",
+		KernelArgs:      "console=ttyS0 noapic reboot=k panic=1 pci=off random.trust_cpu=on nomodules",
 		Drives:          firecracker.NewDrivesBuilder("/home/pwagner/git/thepwagner/hermit/tmp/root.img").Build(),
 		MachineCfg: models.MachineConfiguration{
 			VcpuCount:  firecracker.Int64(1),
@@ -26,8 +26,7 @@ func run(l logr.Logger) error {
 		},
 	}
 	ctx := context.Background()
-	// build our custom command that contains our two files to
-	// write to during process execution
+
 	cmd := firecracker.VMCommandBuilder{}.
 		WithBin("firecracker").
 		WithSocketPath(socketPath).

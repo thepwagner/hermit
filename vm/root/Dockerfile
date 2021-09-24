@@ -2,10 +2,15 @@ FROM debian:bullseye-slim
 
 RUN apt-get update && apt-get install -y \
   curl \
-  systemd-sysv
+  systemd-sysv \
+  linux-image-amd64
 
-# RUN ln -s agetty /etc/init.d/agetty.ttyS0
-RUN echo ttyS0 > /etc/securetty
+# Kernel is loaded from the host, we only wanted modules
+RUN rm -Rf \
+  /boot/* \
+  /initrd.img /initrd.img.old \
+  /vmlinuz vmlinuz.old \
+  /lib/modules
 
 ARG CONTAINERD_VERSION="v1.5.5"
 ARG CONTAINERD_SHASUM="8efc527ffb772a82021800f0151374a3113ed2439922497ff08f2596a70f10f1"
@@ -27,6 +32,21 @@ RUN curl -Lo /tmp/buildkit.tgz "https://github.com/moby/buildkit/releases/downlo
     tar -xzvvf /tmp/buildkit.tgz -C "/usr/local/bin" --strip-components=1 && \
     rm -f /tmp/buildkit.tgz
 
-# COPY containerd.initd /etc/init.d/containerd
-#RUN rc-update add containerd boot
+COPY containerd.service /etc/systemd/system/containerd.service
+COPY containerd.toml /etc/containerd.toml
+RUN systemctl enable containerd.service
+
+COPY buildkit.service /etc/systemd/system/buildkit.service
+COPY buildkit.socket /etc/systemd/system/buildkit.socket
+RUN systemctl enable buildkit.service
+
+RUN systemctl mask getty@tty2.service
+RUN systemctl mask getty@tty3.service
+RUN systemctl mask getty@tty4.service
+RUN systemctl mask getty@tty5.service
+RUN systemctl mask getty@tty6.service
+RUN systemctl mask systemd-timesyncd.service
+RUN echo "sandbox" > /etc/hostname
+
+# FIXME: testing, not a backdoor i promise
 RUN echo 'root:root' | chpasswd

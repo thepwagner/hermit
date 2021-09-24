@@ -1,0 +1,4 @@
+[grpc]
+  address = "/run/containerd/containerd.sock"
+  uid = 0
+  gid = 4

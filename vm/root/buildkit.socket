@@ -1,0 +1,11 @@
+[Unit]
+Description=BuildKit
+
+[Socket]
+ListenStream=%t/buildkit/buildkitd.sock
+SocketMode=0660
+SocketUser=root
+SocketGroup=adm
+
+[Install]
+WantedBy=sockets.target

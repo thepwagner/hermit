@@ -1,0 +1,10 @@
+[Unit]
+Description=BuildKit
+Requires=buildkit.socket
+After=buildkit.socket
+
+[Service]
+ExecStart=/usr/local/bin/buildkitd --addr fd:// --oci-worker=false --containerd-worker=true
+
+[Install]
+WantedBy=multi-user.target
