@@ -1,3 +1,4 @@
-blobs/
 /key.der
 /cage
+/.vscode
+/tmp
