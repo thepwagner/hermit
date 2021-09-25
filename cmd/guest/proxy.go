@@ -16,7 +16,7 @@ const (
 	vsockProxyPort   = 1024
 )
 
-var vsockProxyCmd = &cobra.Command{
+var proxyCmd = &cobra.Command{
 	Use: "proxy",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		l := log.New()
@@ -60,5 +60,5 @@ func handle(log logr.Logger, c net.Conn) {
 }
 
 func init() {
-	rootCmd.AddCommand(vsockProxyCmd)
+	rootCmd.AddCommand(proxyCmd)
 }

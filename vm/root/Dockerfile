@@ -23,7 +23,9 @@ RUN apt-get update && \
     /var/lib/apt/lists/* \
     /boot/* \
     /lib/modules
-RUN systemctl mask getty@tty2.service && \
+RUN systemctl mask serial-getty@ttyS0.service
+RUN systemctl mask getty@tty1.service && \
+  systemctl mask getty@tty2.service && \
   systemctl mask getty@tty3.service && \
   systemctl mask getty@tty4.service && \
   systemctl mask getty@tty5.service && \
@@ -68,7 +70,9 @@ COPY vm/root/Dockerfile.test /root/Dockerfile
 # Install the guest:
 COPY vm/root/guestproxy.service /etc/systemd/system/guestproxy.service
 COPY vm/root/guestproxy-cert.service /etc/systemd/system/guestproxy-cert.service
+COPY vm/root/guestbuild.service /etc/systemd/system/guestbuild.service
 RUN systemctl enable guestproxy.service
 RUN systemctl enable guestproxy-cert.service
+RUN systemctl enable guestbuild.service
 
 COPY --from=builder /guest /usr/local/bin/guest

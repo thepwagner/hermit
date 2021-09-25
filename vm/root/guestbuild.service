@@ -1,0 +1,13 @@
+[Unit]
+Description=Guest Build
+After=buildkit.service
+Requires=buildkit.service
+
+[Service]
+Type=oneshot
+ExecStartPre=-/bin/sh -c "/usr/local/bin/guest build | tee /dev/ttyS0"
+ExecStart=/sbin/shutdown -r now
+WorkingDirectory=/root
+
+[Install]
+WantedBy=multi-user.target
