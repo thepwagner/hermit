@@ -18,7 +18,7 @@ func run(l logr.Logger) error {
 	}
 
 	snap := proxy.NewSnapshot()
-	// snap, err := proxy.LoadSnapshot("cage/index/6a11d7f3641af775ffd8a761cfb2425c51242d389eb9b6dd82e949d6cc7b04da.json")
+	// snap, err := proxy.LoadSnapshot("cage/index/3f823020f68c73c037c729039d51bf294d2e79119fffad5419ffc8810c15af95.json")
 	// if err != nil {
 	// 	return err
 	// }

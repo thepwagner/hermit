@@ -6,7 +6,7 @@ Requires=guestproxy-cert.service
 After=guestproxy-cert.service
 
 [Service]
-ExecStart=/usr/local/bin/buildkitd --addr fd:// --oci-worker=false --containerd-worker=true
+ExecStart=/usr/local/bin/buildkitd --addr fd://
 Environment=http_proxy=http://127.0.0.1:3128
 Environment=https_proxy=http://127.0.0.1:3128
 

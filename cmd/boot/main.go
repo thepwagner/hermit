@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 
 	"github.com/firecracker-microvm/firecracker-go-sdk"
 	"github.com/firecracker-microvm/firecracker-go-sdk/client/models"
@@ -17,11 +19,23 @@ func run(l logr.Logger) error {
 		vsockPath  = "/tmp/firecracker-vsock.sock"
 	)
 
+	// Create a temporary directory
+	jobDir, err := os.MkdirTemp("/mnt", "boot-*")
+	if err != nil {
+		return err
+	}
+	rootImage := filepath.Join(jobDir, "root.img")
+	if err := exec.Command("/usr/bin/cp", "--reflink=always", "/mnt/root.img", rootImage).Run(); err != nil {
+		return err
+	}
+	l.Info("created root image", "path", rootImage)
+	defer os.RemoveAll(jobDir)
+
 	cfg := firecracker.Config{
 		SocketPath:      socketPath,
 		KernelImagePath: "/home/pwagner/hermit/tmp/kernel/vmlinux",
 		KernelArgs:      "console=ttyS0 noapic reboot=k panic=1 pci=off random.trust_cpu=on nomodules quiet",
-		Drives:          firecracker.NewDrivesBuilder("/home/pwagner/hermit/tmp/root.img").Build(),
+		Drives:          firecracker.NewDrivesBuilder(rootImage).Build(),
 		MachineCfg: models.MachineConfiguration{
 			VcpuCount:  firecracker.Int64(1),
 			MemSizeMib: firecracker.Int64(512),

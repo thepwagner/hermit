@@ -5,7 +5,7 @@ Requires=buildkit.service
 
 [Service]
 Type=oneshot
-ExecStartPre=-/bin/sh -c "/usr/local/bin/guest build | tee /dev/ttyS0"
+ExecStartPre=-/bin/sh -c "/usr/local/bin/test.sh | tee /dev/ttyS0"
 ExecStart=/sbin/shutdown -r now
 WorkingDirectory=/root
 
