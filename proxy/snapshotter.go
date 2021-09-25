@@ -44,6 +44,7 @@ func (s *Snapshotter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				s.log.Error(err, "failed to get content")
 				return
 			}
+			w.WriteHeader(stored.StatusCode)
 			w.Write(b)
 		}
 		return
@@ -52,7 +53,6 @@ func (s *Snapshotter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.log.Error(err, "capturing response")
 		http.Error(w, "", http.StatusInternalServerError)
 	}
-	return
 }
 
 func (s *Snapshotter) captureResponse(w http.ResponseWriter, r *http.Request, key string) error {
@@ -65,12 +65,14 @@ func (s *Snapshotter) captureResponse(w http.ResponseWriter, r *http.Request, ke
 	bufW := httptest.NewRecorder()
 	s.proxy.ServeHTTP(bufW, r)
 	s.log.Info("proxied request", "url", r.URL.String(), "status", bufW.Code)
-	if bufW.Code == http.StatusTemporaryRedirect {
+	switch bufW.Code {
+	case http.StatusFound, http.StatusTemporaryRedirect, http.StatusPermanentRedirect:
 		if err := s.followRedirect(bufW, r); err != nil {
 			return err
 		}
+	default:
+		// passthrough
 	}
-
 	if r.Method == http.MethodGet {
 		data := NewURLData(bufW)
 		s.snap.Set(key, data)

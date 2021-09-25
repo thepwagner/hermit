@@ -37,8 +37,8 @@ func run(l logr.Logger) error {
 		KernelArgs:      "console=ttyS0 noapic reboot=k panic=1 pci=off random.trust_cpu=on nomodules quiet",
 		Drives:          firecracker.NewDrivesBuilder(rootImage).Build(),
 		MachineCfg: models.MachineConfiguration{
-			VcpuCount:  firecracker.Int64(1),
-			MemSizeMib: firecracker.Int64(512),
+			VcpuCount:  firecracker.Int64(16),
+			MemSizeMib: firecracker.Int64(8192),
 			HtEnabled:  firecracker.Bool(true),
 		},
 		VsockDevices: []firecracker.VsockDevice{

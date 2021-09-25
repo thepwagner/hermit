@@ -8,7 +8,7 @@ mkdir -p "$ROOT/tmp"
 ROOT_IMG="/mnt/root.img"
 
 rm -f "$ROOT_IMG"
-truncate -s 1G "$ROOT_IMG"
+truncate -s 4G "$ROOT_IMG"
 /sbin/mkfs.ext4 -m 0 "$ROOT_IMG"
 
 # BUILD_DIR=$(mktemp -d -p "$ROOT/tmp")

@@ -9,6 +9,7 @@ import (
 )
 
 type URLData struct {
+	StatusCode    int    `json:"responseCode,omitempty"`
 	ContentType   string `json:"contentType,omitempty"`
 	ContentLength int    `json:"contentLength,omitempty"`
 	Sha256        string `json:"sha256"`
@@ -20,6 +21,7 @@ func NewURLData(r *httptest.ResponseRecorder) *URLData {
 	sha3Hash := make([]byte, 64)
 	sha3.ShakeSum256(sha3Hash, r.Body.Bytes())
 	return &URLData{
+		StatusCode:    r.Code,
 		ContentType:   r.Header().Get("Content-Type"),
 		ContentLength: r.Body.Len(),
 		Sha256:        fmt.Sprintf("%x", sha256Hash),

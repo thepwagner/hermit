@@ -8,3 +8,5 @@ cd /root
 git clone https://github.com/thepwagner/archivist.git 
 cd archivist
 /usr/local/bin/guest build
+
+tar -tvvf "/tmp/image.tar"

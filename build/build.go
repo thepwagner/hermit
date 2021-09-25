@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -35,6 +36,12 @@ func (b *Builder) Build(ctx context.Context, path string) error {
 		return err
 	}
 
+	out, err := os.Create("/tmp/image.tar")
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
 	solveOpt := buildkit.SolveOpt{
 		Frontend: "dockerfile.v0",
 		FrontendAttrs: map[string]string{
@@ -44,6 +51,14 @@ func (b *Builder) Build(ctx context.Context, path string) error {
 		LocalDirs: map[string]string{
 			builder.DefaultLocalNameContext:    path,
 			builder.DefaultLocalNameDockerfile: hackedDockerfile,
+		},
+		Exports: []buildkit.ExportEntry{
+			{
+				Type: buildkit.ExporterDocker,
+				Output: func(map[string]string) (io.WriteCloser, error) {
+					return out, nil
+				},
+			},
 		},
 	}
 
@@ -82,7 +97,13 @@ func hackDockerfile(path string) (string, error) {
 			continue
 		}
 		open = true
-		fmt.Fprintf(&hacked, "ADD %s %s\n", hermitCertURL, hermitCert)
+
+		if !strings.Contains(l, "scratch") { // awkwardly bad
+			fmt.Fprintf(&hacked, "ADD %s %s\n", hermitCertURL, hermitCert)
+			fmt.Fprintf(&hacked, "RUN update-ca-certificates\n")
+		} else {
+			open = false
+		}
 	}
 	if open {
 		fmt.Fprintf(&hacked, "RUN (rm %s && update-ca-certificates) || true\n", hermitCert)
