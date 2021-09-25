@@ -116,9 +116,9 @@ download_firecracker() {
   chmod +x "${DEST}/jailer"
 }
 
-# download_containerd
-# download_runc
-# download_buildkit
+download_containerd
+download_runc
+download_buildkit
 download_firecracker
 
 systemctl daemon-reload
