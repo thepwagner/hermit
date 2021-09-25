@@ -20,8 +20,9 @@ COPY config .config
 RUN make oldconfig
 
 # Compile (grab a coffee)
-RUN make -j$(nproc) vmlinux && \
-  mv vmlinux /
+RUN make -j$(nproc) vmlinux
+USER root
+RUN mv vmlinux /
 
 FROM scratch
 COPY --from=builder /vmlinux /

@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/firecracker-microvm/firecracker-go-sdk v0.22.0
 	github.com/go-logr/logr v1.1.0
+	github.com/hashicorp/golang-lru v0.5.3
 	github.com/mdlayher/vsock v0.0.0-20210303205602-10d591861736
 	github.com/moby/buildkit v0.9.0
 	github.com/rs/zerolog v1.25.0

@@ -44,8 +44,7 @@ func (s *Snapshotter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				s.log.Error(err, "failed to get content")
 				return
 			}
-			defer b.Close()
-			io.Copy(w, b)
+			w.Write(b)
 		}
 		return
 	}

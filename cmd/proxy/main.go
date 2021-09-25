@@ -24,8 +24,13 @@ func run(l logr.Logger) error {
 	defer snap.Save("cage/index")
 
 	storage := proxy.NewFileStorage(l, "cage/blobs")
+	cachedStorage, err := proxy.NewLRUStorage(128, storage)
+	if err != nil {
+		return err
+	}
+
 	p, err := proxy.NewProxy(
-		proxy.NewSnapshotter(l, snap, storage),
+		proxy.NewSnapshotter(l, snap, cachedStorage),
 		proxy.ProxyWithPrivateKey(pk),
 		proxy.ProxyWithLog(l),
 		proxy.ProxyWithAddr("0.0.0.0:3128"),

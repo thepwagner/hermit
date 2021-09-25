@@ -1,16 +1,14 @@
 package proxy
 
 import (
-	"io"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 
 	"github.com/go-logr/logr"
 )
 
 type Storage interface {
-	Load(*URLData) (io.ReadCloser, error)
+	Load(*URLData) ([]byte, error)
 	Store(data *URLData, content []byte) error
 }
 
@@ -28,10 +26,10 @@ func NewFileStorage(log logr.Logger, blobDir string) *FileStorage {
 	}
 }
 
-func (s *FileStorage) Load(data *URLData) (io.ReadCloser, error) {
+func (s *FileStorage) Load(data *URLData) ([]byte, error) {
 	p := filepath.Join(s.blobDir, data.Sha256)
 	s.log.Info("load content", "path", p)
-	return os.Open(p)
+	return ioutil.ReadFile(p)
 }
 
 func (s *FileStorage) Store(data *URLData, content []byte) error {
