@@ -51,7 +51,8 @@ func NewProxy(handler http.Handler, opts ...ProxyOpt) (*Proxy, error) {
 	p.log.Info("certificate issuer", "key", fmt.Sprintf("%x", p.pk.PublicKey.X.Bytes()))
 
 	// Bind first, so we can read a randomly assigned port
-	l, err := net.Listen("tcp4", p.addr)
+	// l, err := net.Listen("tcp4", p.addr)
+	l, err := net.Listen("unix", "/tmp/firecracker-vsock.sock_1024")
 	if err != nil {
 		return nil, fmt.Errorf("binding listener: %w", err)
 	}
@@ -59,7 +60,7 @@ func NewProxy(handler http.Handler, opts ...ProxyOpt) (*Proxy, error) {
 
 	// Embed and start a HTTP server:
 	p.srv = &http.Server{Handler: p}
-	p.url, _ = url.Parse(fmt.Sprintf("http://%s", l.Addr().(*net.TCPAddr).String()))
+	p.url, _ = url.Parse(fmt.Sprintf("http://%s", l.Addr().String()))
 	go func() {
 		if err := p.srv.Serve(l); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			p.log.Error(err, "proxy server error")

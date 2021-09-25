@@ -2,6 +2,8 @@
 Description=BuildKit
 Requires=buildkit.socket
 After=buildkit.socket
+Requires=guestproxy-cert.service
+After=guestproxy-cert.service
 
 [Service]
 ExecStart=/usr/local/bin/buildkitd --addr fd:// --oci-worker=false --containerd-worker=true

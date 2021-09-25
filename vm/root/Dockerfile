@@ -24,12 +24,12 @@ RUN apt-get update && \
     /var/lib/apt/lists/* \
     /boot/* \
     /lib/modules
-RUN systemctl mask getty@tty2.service
-RUN systemctl mask getty@tty3.service
-RUN systemctl mask getty@tty4.service
-RUN systemctl mask getty@tty5.service
-RUN systemctl mask getty@tty6.service
-RUN systemctl mask systemd-timesyncd.service
+RUN systemctl mask getty@tty2.service && \
+  systemctl mask getty@tty3.service && \
+  systemctl mask getty@tty4.service && \
+  systemctl mask getty@tty5.service && \
+  systemctl mask getty@tty6.service && \
+  systemctl mask systemd-timesyncd.service
 RUN echo "sandbox" > /etc/hostname
 
 # Install buildkit:
@@ -64,6 +64,8 @@ RUN echo 'root:root' | chpasswd
 COPY --from=builder /guest /usr/local/bin/guest
 COPY --from=builder /build /usr/local/bin/build
 COPY vm/root/guestproxy.service /etc/systemd/system/guestproxy.service
+COPY vm/root/guestproxy-cert.service /etc/systemd/system/guestproxy-cert.service
 RUN systemctl enable guestproxy.service
+RUN systemctl enable guestproxy-cert.service
 
 COPY vm/root/Dockerfile.test /root/Dockerfile
