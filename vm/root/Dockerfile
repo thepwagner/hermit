@@ -55,10 +55,13 @@ COPY vm/root/guestproxy.service /etc/systemd/system/guestproxy.service
 COPY vm/root/guestproxy-cert.service /etc/systemd/system/guestproxy-cert.service
 COPY vm/root/guestbuild.service /etc/systemd/system/guestbuild.service
 COPY vm/root/input.mount /etc/systemd/system/input.mount
+COPY vm/root/output.mount /etc/systemd/system/output.mount
 RUN systemctl enable guestproxy.service && \
   systemctl enable guestproxy-cert.service && \
   mkdir -p /input && \
-  systemctl enable input.mount
+  systemctl enable input.mount && \
+  mkdir -p /output && \
+  systemctl enable output.mount
 
 # Autostart guestbuild and disable login:
 RUN systemctl enable guestbuild.service

@@ -5,13 +5,15 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/thepwagner/hermit/build"
+	"github.com/thepwagner/hermit/log"
 )
 
 var buildCmd = &cobra.Command{
 	Use: "build",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
-		b, err := build.NewBuilder(ctx)
+		l := log.New()
+		b, err := build.NewBuilder(ctx, l, "/output")
 		if err != nil {
 			return err
 		}

@@ -29,7 +29,7 @@ func NewFirecracker(l logr.Logger) *Firecracker {
 	}
 }
 
-func (f *Firecracker) BootVM(ctx context.Context, srcVolume string) error {
+func (f *Firecracker) BootVM(ctx context.Context, inVolume, outVolume string) error {
 	vmDir, err := ioutil.TempDir(f.runDir, "vm-*")
 	if err != nil {
 		return err
@@ -42,8 +42,8 @@ func (f *Firecracker) BootVM(ctx context.Context, srcVolume string) error {
 	}
 	f.log.Info("created vm root", "path", vmRoot)
 
-	vmSrc := filepath.Join(vmDir, "src.img")
-	if err := CopyVolume(ctx, srcVolume, vmSrc); err != nil {
+	vmSrc := filepath.Join(vmDir, "input.img")
+	if err := CopyVolume(ctx, inVolume, vmSrc); err != nil {
 		return err
 	}
 
@@ -57,7 +57,10 @@ func (f *Firecracker) BootVM(ctx context.Context, srcVolume string) error {
 		SocketPath:      fcSockPath,
 		KernelImagePath: "/home/pwagner/hermit/tmp/kernel/vmlinux",
 		KernelArgs:      "console=ttyS0 noapic reboot=k panic=1 pci=off random.trust_cpu=on nomodules quiet",
-		Drives:          firecracker.NewDrivesBuilder(vmRoot).AddDrive(vmSrc, false).Build(),
+		Drives: firecracker.NewDrivesBuilder(vmRoot).
+			AddDrive(vmSrc, false).
+			AddDrive(outVolume, false).
+			Build(),
 		MachineCfg: models.MachineConfiguration{
 			VcpuCount:  firecracker.Int64(16),
 			MemSizeMib: firecracker.Int64(8192),

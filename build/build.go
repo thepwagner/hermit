@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/go-logr/logr"
 	buildkit "github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/frontend/dockerfile/builder"
 	"github.com/moby/buildkit/util/progress/progressui"
@@ -17,15 +18,21 @@ import (
 )
 
 type Builder struct {
-	bk *buildkit.Client
+	log       logr.Logger
+	bk        *buildkit.Client
+	outputDir string
 }
 
-func NewBuilder(ctx context.Context) (*Builder, error) {
+func NewBuilder(ctx context.Context, l logr.Logger, outputDir string) (*Builder, error) {
 	bk, err := buildkit.New(ctx, "unix:///run/buildkit/buildkitd.sock")
 	if err != nil {
 		return nil, err
 	}
-	return &Builder{bk: bk}, nil
+	return &Builder{
+		log:       l,
+		bk:        bk,
+		outputDir: outputDir,
+	}, nil
 }
 
 func (b *Builder) Build(ctx context.Context, path string) error {
@@ -36,7 +43,7 @@ func (b *Builder) Build(ctx context.Context, path string) error {
 		return err
 	}
 
-	out, err := os.Create("/tmp/image.tar")
+	out, err := os.Create(filepath.Join(b.outputDir, "image.tar"))
 	if err != nil {
 		return err
 	}
@@ -61,7 +68,7 @@ func (b *Builder) Build(ctx context.Context, path string) error {
 			},
 		},
 	}
-
+	b.log.Info("running build", "input", path, "output", out, "dockerfile", hackedDockerfile)
 	ch := make(chan *buildkit.SolveStatus)
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {

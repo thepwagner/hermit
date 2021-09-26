@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -38,14 +37,10 @@ func (g *GitCloner) Clone(ctx context.Context, owner, repo, commit string) (stri
 	}
 
 	// Build in a temporary file that will be renamed to `f` when complete, to avoid races.
-	tmp, err := ioutil.TempFile(filepath.Dir(f), "volume-*")
+	tmpFile, err := TempFile(filepath.Dir(f), "volume-*")
 	if err != nil {
-		return "", fmt.Errorf("creating temp file: %w", err)
+		return "", err
 	}
-	if err := tmp.Close(); err != nil {
-		return "", fmt.Errorf("creating temp file: %w", err)
-	}
-	tmpFile := tmp.Name()
 	defer os.Remove(tmpFile)
 
 	// Skim the git history for any parents that are already checked out:
@@ -66,7 +61,7 @@ func (g *GitCloner) Clone(ctx context.Context, owner, repo, commit string) (stri
 	}
 
 	// Mount the volume, which may be empty or seeded from a parent:
-	mnt, err := MountVolume(ctx, tmp.Name(), "")
+	mnt, err := MountVolume(ctx, tmpFile, "")
 	if err != nil {
 		return "", err
 	}

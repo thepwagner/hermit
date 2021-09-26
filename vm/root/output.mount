@@ -1,0 +1,11 @@
+[Unit]
+Description=Output
+
+[Mount]
+What=/dev/vdc
+Where=/output
+Type=ext4
+Options=noatime
+
+[Install]
+WantedBy=multi-user.target

@@ -61,3 +61,14 @@ func (m MountedVolume) Close(ctx context.Context) error {
 	}
 	return os.Remove(mnt)
 }
+
+func TempFile(dir, pattern string) (string, error) {
+	tmp, err := ioutil.TempFile(dir, pattern)
+	if err != nil {
+		return "", fmt.Errorf("creating temp file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return "", fmt.Errorf("creating temp file: %w", err)
+	}
+	return tmp.Name(), nil
+}

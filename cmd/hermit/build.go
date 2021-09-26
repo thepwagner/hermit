@@ -1,7 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/google/go-github/v39/github"
 	"github.com/spf13/cobra"
@@ -14,7 +17,8 @@ const (
 	repoName  = "repo"
 	repoRef   = "ref"
 
-	srcDir = "/mnt/src"
+	srcDir    = "/mnt/src"
+	outputDir = "/mnt/output"
 )
 
 var buildCmd = &cobra.Command{
@@ -45,13 +49,26 @@ var buildCmd = &cobra.Command{
 		}
 		l.Info("source volume created", "src", src)
 
+		outputTmp, err := build.TempFile(outputDir, fmt.Sprintf("%s-*", ref))
+		if err != nil {
+			return err
+		}
+		if err := build.CreateVolume(ctx, outputTmp, 256); err != nil {
+			_ = os.Remove(outputTmp)
+			return err
+		}
+
 		fc := build.NewFirecracker(l)
-		return fc.BootVM(ctx, src)
+		if err := fc.BootVM(ctx, src, outputTmp); err != nil {
+			_ = os.Remove(outputTmp)
+			return err
+		}
+		return os.Rename(outputTmp, filepath.Join(outputDir, fmt.Sprintf("%s.img", ref)))
 	},
 }
 
 func init() {
-	buildCmd.Flags().StringP(repoOwner, "o", "thepwagner", "GitHub repository owner")
+	buildCmd.Flags().String(repoOwner, "thepwagner", "GitHub repository owner")
 	buildCmd.Flags().StringP(repoName, "r", "archivist", "GitHub repository name")
 	buildCmd.Flags().String(repoRef, "3817d505e8bb39f43287256f3086f82e4b56374b", "GitHub repository ref")
 	rootCmd.AddCommand(buildCmd)
