@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/firecracker-microvm/firecracker-go-sdk v0.22.0
 	github.com/go-logr/logr v1.1.0
+	github.com/google/go-github/v39 v39.1.0
 	github.com/hashicorp/golang-lru v0.5.3
 	github.com/mdlayher/vsock v0.0.0-20210303205602-10d591861736
 	github.com/moby/buildkit v0.9.0
@@ -14,6 +15,7 @@ require (
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
+	gopkg.in/src-d/go-git.v4 v4.13.1
 )
 
 require (
@@ -35,6 +37,7 @@ require (
 	github.com/docker/docker v20.10.7+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
+	github.com/emirpasic/gods v1.12.0 // indirect
 	github.com/go-openapi/analysis v0.19.10 // indirect
 	github.com/go-openapi/errors v0.19.7 // indirect
 	github.com/go-openapi/jsonpointer v0.19.3 // indirect
@@ -52,14 +55,18 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4-0.20210608040537-544b4180ac70 // indirect
+	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
+	github.com/kevinburke/ssh_config v0.0.0-20190725054713-01f96b0aa0cd // indirect
 	github.com/klauspost/compress v1.12.3 // indirect
 	github.com/mailru/easyjson v0.7.1 // indirect
+	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.3.2 // indirect
 	github.com/moby/locker v1.0.1 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
@@ -67,13 +74,16 @@ require (
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/sergi/go-diff v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/src-d/gcfg v1.4.0 // indirect
 	github.com/tonistiigi/fsutil v0.0.0-20210609172227-d72af97c0eaf // indirect
 	github.com/tonistiigi/units v0.0.0-20180711220420-6950e57a87ea // indirect
 	github.com/tonistiigi/vt100 v0.0.0-20210615222946-8066bb97264f // indirect
 	github.com/vishvananda/netlink v1.1.1-0.20201029203352-d40f9887b852 // indirect
 	github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae // indirect
+	github.com/xanzy/ssh-agent v0.2.1 // indirect
 	go.mongodb.org/mongo-driver v1.3.4 // indirect
 	go.opentelemetry.io/contrib v0.21.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.21.0 // indirect
@@ -89,6 +99,8 @@ require (
 	google.golang.org/genproto v0.0.0-20201110150050-8816d57aaa9a // indirect
 	google.golang.org/grpc v1.38.0 // indirect
 	google.golang.org/protobuf v1.26.0 // indirect
+	gopkg.in/src-d/go-billy.v4 v4.3.2 // indirect
+	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
