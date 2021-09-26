@@ -6,16 +6,20 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 )
 
-func CopyVolume(src, dst string) error {
-	if err := exec.Command("/usr/bin/cp", "--reflink=always", src, dst).Run(); err != nil {
+func CopyVolume(ctx context.Context, src, dst string) error {
+	if err := exec.CommandContext(ctx, "/usr/bin/cp", "--reflink=always", src, dst).Run(); err != nil {
 		return fmt.Errorf("copying file: %w", err)
 	}
 	return nil
 }
 
 func CreateVolume(ctx context.Context, path string, sizeMB int) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
+		return fmt.Errorf("creating directory: %w", err)
+	}
 	f, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("creating file: %w", err)
@@ -39,7 +43,7 @@ func MountVolume(ctx context.Context, volume, dir string) (MountedVolume, error)
 	if err != nil {
 		return "", err
 	}
-	if err := exec.CommandContext(ctx, "/bin/mount", "-o", "loop", volume, tmpDir).Run(); err != nil {
+	if err := exec.CommandContext(ctx, "/bin/mount", "-o", "loop,noatime", volume, tmpDir).Run(); err != nil {
 		_ = os.RemoveAll(tmpDir)
 		return "", fmt.Errorf("mounting volume: %w", err)
 	}
@@ -51,5 +55,9 @@ func (m MountedVolume) Path() string {
 }
 
 func (m MountedVolume) Close(ctx context.Context) error {
-	return exec.CommandContext(ctx, "/bin/umount", string(m)).Run()
+	mnt := m.Path()
+	if err := exec.CommandContext(ctx, "/bin/umount", mnt).Run(); err != nil {
+		return err
+	}
+	return os.Remove(mnt)
 }

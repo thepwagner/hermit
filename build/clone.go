@@ -2,7 +2,9 @@ package build
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -29,65 +31,85 @@ func NewGitCloner(log logr.Logger, gh *github.Client, cloneDir string) *GitClone
 }
 
 func (g *GitCloner) Clone(ctx context.Context, owner, repo, commit string) (string, error) {
+	// Has this commit already been checked out?
 	f := g.refFile(owner, repo, commit)
 	if _, err := os.Stat(f); err == nil {
 		return f, nil
 	}
 
+	// Build in a temporary file that will be renamed to `f` when complete, to avoid races.
+	tmp, err := ioutil.TempFile(filepath.Dir(f), "volume-*")
+	if err != nil {
+		return "", fmt.Errorf("creating temp file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return "", fmt.Errorf("creating temp file: %w", err)
+	}
+	tmpFile := tmp.Name()
+	defer os.Remove(tmpFile)
+
+	// Skim the git history for any parents that are already checked out:
 	parent, err := g.existingParent(ctx, owner, repo, commit)
 	if err != nil {
 		return "", nil
 	}
 	if parent != "" {
-		g.log.Info("found existing parent", "parent", parent)
-		if err := CopyVolume(parent, f); err != nil {
+		g.log.Info("found existing parent", "src", f, "parent", parent)
+		if err := CopyVolume(ctx, parent, tmpFile); err != nil {
 			return "", err
 		}
 	} else {
-		if err := CreateVolume(ctx, f, g.cloneSizeMB); err != nil {
+		g.log.Info("creating volume", "src", f)
+		if err := CreateVolume(ctx, tmpFile, g.cloneSizeMB); err != nil {
 			return "", err
 		}
 	}
 
-	mnt, err := MountVolume(ctx, f, "")
+	// Mount the volume, which may be empty or seeded from a parent:
+	mnt, err := MountVolume(ctx, tmp.Name(), "")
 	if err != nil {
 		return "", err
 	}
 	defer mnt.Close(ctx)
+	g.log.Info("mounted volume", "src", f, "mnt", mnt.Path())
 
-	var wt *git.Worktree
+	// Refresh the git clone therein.
+	var r *git.Repository
 	if parent != "" {
-		r, err := git.PlainOpen(mnt.Path())
+		g.log.Info("fetching to update volume", "mnt", mnt.Path(), "parent", parent)
+		r, err = git.PlainOpen(mnt.Path())
 		if err != nil {
 			return "", err
 		}
-		wt, err = r.Worktree()
-		if err != nil {
-			return "", err
-		}
-		if err := wt.Pull(&git.PullOptions{}); err != nil {
-			return "", fmt.Errorf("pulling to update: %w", err)
+		if err := r.FetchContext(ctx, &git.FetchOptions{}); err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
+			return "", fmt.Errorf("fetching to update: %w", err)
 		}
 	} else {
-		r, err := git.PlainClone(mnt.Path(), false, &git.CloneOptions{
+		g.log.Info("cloning in to volume", "mnt", mnt.Path())
+		r, err = git.PlainClone(mnt.Path(), false, &git.CloneOptions{
 			URL: fmt.Sprintf("https://github.com/%s/%s.git", owner, repo),
 		})
 		if err != nil {
 			return "", err
 		}
-		wt, err = r.Worktree()
-		if err != nil {
-			return "", err
-		}
 	}
 
+	// Finally, check out the target commit:
+	wt, err := r.Worktree()
+	if err != nil {
+		return "", err
+	}
 	if err := wt.Checkout(&git.CheckoutOptions{
 		Hash: plumbing.NewHash(commit),
 	}); err != nil {
 		return "", fmt.Errorf("checking out: %w", err)
 	}
 
-	return "", nil
+	// Finalize image:
+	if err := os.Rename(tmpFile, f); err != nil {
+		return "", fmt.Errorf("renaming: %w", err)
+	}
+	return f, nil
 }
 
 func (g *GitCloner) refFile(owner, repo, ref string) string {

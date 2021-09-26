@@ -23,7 +23,6 @@ RUN apt-get update && \
     /var/lib/apt/lists/* \
     /boot/* \
     /lib/modules
-RUN systemctl mask serial-getty@ttyS0.service
 RUN systemctl mask getty@tty1.service && \
   systemctl mask getty@tty2.service && \
   systemctl mask getty@tty3.service && \
@@ -55,15 +54,14 @@ RUN systemctl enable buildkit.service
 COPY vm/root/guestproxy.service /etc/systemd/system/guestproxy.service
 COPY vm/root/guestproxy-cert.service /etc/systemd/system/guestproxy-cert.service
 COPY vm/root/guestbuild.service /etc/systemd/system/guestbuild.service
-RUN systemctl enable guestproxy.service
-RUN systemctl enable guestproxy-cert.service
+COPY vm/root/input.mount /etc/systemd/system/input.mount
+RUN systemctl enable guestproxy.service && \
+  systemctl enable guestproxy-cert.service && \
+  mkdir -p /input && \
+  systemctl enable input.mount
+
+# Autostart guestbuild and disable login:
 RUN systemctl enable guestbuild.service
+RUN systemctl mask serial-getty@ttyS0.service
 
 COPY --from=builder /guest /usr/local/bin/guest
-
-# FIXME: for a test, remove this
-RUN apt-get update && \
-  apt-get -y install git && \
-  apt-get clean && \
-  rm -Rf /var/lib/apt/lists/*
-COPY vm/root/test.sh /usr/local/bin/test.sh

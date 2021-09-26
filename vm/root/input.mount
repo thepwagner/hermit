@@ -1,0 +1,11 @@
+[Unit]
+Description=Input
+
+[Mount]
+What=/dev/vdb
+Where=/input
+Type=ext4
+Options=noatime
+
+[Install]
+WantedBy=multi-user.target

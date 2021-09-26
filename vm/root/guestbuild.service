@@ -2,12 +2,14 @@
 Description=Guest Build
 After=buildkit.service
 Requires=buildkit.service
+After=input.mount
+Requires=input.mount
 
 [Service]
 Type=oneshot
-ExecStartPre=-/bin/sh -c "/usr/local/bin/test.sh | tee /dev/ttyS0"
+ExecStartPre=-/bin/sh -c "/usr/local/bin/guest build | tee /dev/ttyS0"
 ExecStart=/sbin/shutdown -r now
-WorkingDirectory=/root
+WorkingDirectory=/input
 
 [Install]
 WantedBy=multi-user.target
