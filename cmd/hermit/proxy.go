@@ -35,6 +35,7 @@ var proxyCmd = &cobra.Command{
 			return err
 		}
 
+		l := log.New()
 		pk, err := proxy.PrivateKey()
 		if err != nil {
 			return err
@@ -44,10 +45,16 @@ var proxyCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		defer snap.Save(indexDir)
+		defer func() {
+			fn, err := snap.Save(indexDir)
+			if err != nil {
+				l.Error(err, "error saving snapshot")
+			} else {
+				l.Info("saved snapshot", "file", fn)
+			}
+		}()
 
-		l := log.New()
-		storage := proxy.NewFileStorage(l, "cage/blobs")
+		storage := proxy.NewFileStorage(l, filepath.Join(fsDir, "blobs"))
 		cachedStorage, err := proxy.NewLRUStorage(128, storage)
 		if err != nil {
 			return err

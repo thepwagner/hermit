@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"syscall"
 
 	"github.com/go-logr/logr"
 )
@@ -19,14 +19,18 @@ type Firecracker struct {
 	vsockCID uint32
 }
 
-func NewFirecracker(l logr.Logger) *Firecracker {
-	return &Firecracker{
+func NewFirecracker(l logr.Logger) (*Firecracker, error) {
+	f := &Firecracker{
 		log:      l,
 		runDir:   "/mnt/run",
 		kernel:   "/home/pwagner/hermit/tmp/kernel/vmlinux",
 		rootImg:  "/mnt/root.img",
 		vsockCID: 2,
 	}
+	if err := os.MkdirAll(f.runDir, 0750); err != nil {
+		return nil, err
+	}
+	return f, nil
 }
 
 func (f *Firecracker) BootVM(ctx context.Context, inVolume, outVolume string) error {
@@ -51,27 +55,26 @@ func (f *Firecracker) BootVM(ctx context.Context, inVolume, outVolume string) er
 	if err != nil {
 		return err
 	}
-	defer proxy.Kill()
+	defer proxy.Process.Kill()
 
 	return f.bootVM(ctx, vmDir, vmRoot, vmSrc, outVolume, vsockPath)
 }
 
-func (f *Firecracker) startProxy(ctx context.Context, vsockPath string) (*os.Process, error) {
+func (f *Firecracker) startProxy(ctx context.Context, vsockPath string) (*exec.Cmd, error) {
 	f.log.Info("starting proxy", "path", vsockPath)
-	attr := &os.ProcAttr{
-		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
-		Sys: &syscall.SysProcAttr{
-			Credential: &syscall.Credential{
-				Uid: uint32(65534),
-				Gid: uint32(65534),
-			},
-		},
+
+	exe, err := os.Executable()
+	if err != nil {
+		return nil, err
 	}
+
 	args := []string{
-		os.Args[0],
 		"proxy",
-		"--socket",
-		fmt.Sprintf("%s_1024", vsockPath),
+		"--socket", fmt.Sprintf("%s_1024", vsockPath),
 	}
-	return os.StartProcess(os.Args[0], args, attr)
+	cmd := exec.CommandContext(ctx, exe, args...)
+	if err := cmd.Start(); err != err {
+		return nil, err
+	}
+	return cmd, nil
 }

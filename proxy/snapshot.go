@@ -47,12 +47,12 @@ func (s *Snapshot) Set(key string, data *URLData) {
 }
 
 // Save writes this snapshot to a unique filename within the given directory
-func (s *Snapshot) Save(dir string) error {
+func (s *Snapshot) Save(dir string) (string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	b, err := json.Marshal(s.Data)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	h := sha256.New()
@@ -60,5 +60,8 @@ func (s *Snapshot) Save(dir string) error {
 	sha := h.Sum(nil)
 
 	fn := filepath.Join(dir, fmt.Sprintf("%x.json", sha))
-	return ioutil.WriteFile(fn, b, 0600)
+	if err := ioutil.WriteFile(fn, b, 0600); err != nil {
+		return "", err
+	}
+	return fn, nil
 }

@@ -49,6 +49,9 @@ var buildCmd = &cobra.Command{
 		}
 		l.Info("source volume created", "src", src)
 
+		if err := os.MkdirAll(outputDir, 0750); err != nil {
+			return err
+		}
 		outputTmp, err := build.TempFile(outputDir, fmt.Sprintf("%s-*", ref))
 		if err != nil {
 			return err
@@ -58,7 +61,11 @@ var buildCmd = &cobra.Command{
 			return err
 		}
 
-		fc := build.NewFirecracker(l)
+		fc, err := build.NewFirecracker(l)
+		if err != nil {
+			_ = os.Remove(outputTmp)
+			return err
+		}
 		if err := fc.BootVM(ctx, src, outputTmp); err != nil {
 			_ = os.Remove(outputTmp)
 			return err

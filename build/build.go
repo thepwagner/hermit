@@ -28,6 +28,9 @@ func NewBuilder(ctx context.Context, l logr.Logger, outputDir string) (*Builder,
 	if err != nil {
 		return nil, err
 	}
+	if err := os.MkdirAll(outputDir, 0750); err != nil {
+		return nil, err
+	}
 	return &Builder{
 		log:       l,
 		bk:        bk,

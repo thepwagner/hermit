@@ -37,7 +37,11 @@ func (g *GitCloner) Clone(ctx context.Context, owner, repo, commit string) (stri
 	}
 
 	// Build in a temporary file that will be renamed to `f` when complete, to avoid races.
-	tmpFile, err := TempFile(filepath.Dir(f), "volume-*")
+	repoStorageDir := filepath.Dir(f)
+	if err := os.MkdirAll(repoStorageDir, 0750); err != nil {
+		return "", err
+	}
+	tmpFile, err := TempFile(repoStorageDir, "volume-*")
 	if err != nil {
 		return "", err
 	}
