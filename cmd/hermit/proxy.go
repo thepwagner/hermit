@@ -41,6 +41,9 @@ var proxyCmd = &cobra.Command{
 			return err
 		}
 		indexDir := filepath.Join(fsDir, "index")
+		if err := os.MkdirAll(indexDir, 0750); err != nil {
+			return err
+		}
 		snap, err := loadSnapshot(indexDir, indexFile)
 		if err != nil {
 			return err
@@ -54,7 +57,10 @@ var proxyCmd = &cobra.Command{
 			}
 		}()
 
-		storage := proxy.NewFileStorage(l, filepath.Join(fsDir, "blobs"))
+		storage, err := proxy.NewFileStorage(l, filepath.Join(fsDir, "blobs"))
+		if err != nil {
+			return err
+		}
 		cachedStorage, err := proxy.NewLRUStorage(128, storage)
 		if err != nil {
 			return err
@@ -92,7 +98,7 @@ func loadSnapshot(indexDir, indexFile string) (*proxy.Snapshot, error) {
 func init() {
 	flags := proxyCmd.Flags()
 	flags.String(fileStorageDir, "/mnt/storage", "directory for file storage")
-	flags.String(fileIndex, "", "index to load")
+	flags.StringP(fileIndex, "f", "", "index to load")
 	flags.String(proxySocket, "", "index to load")
 	rootCmd.AddCommand(proxyCmd)
 }

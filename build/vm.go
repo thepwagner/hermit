@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"syscall"
 
 	"github.com/go-logr/logr"
 )
@@ -33,7 +34,7 @@ func NewFirecracker(l logr.Logger) (*Firecracker, error) {
 	return f, nil
 }
 
-func (f *Firecracker) BootVM(ctx context.Context, inVolume, outVolume string) error {
+func (f *Firecracker) BootVM(ctx context.Context, inVolume, outVolume, proxyIndexFile string) error {
 	vmDir, err := ioutil.TempDir(f.runDir, "vm-*")
 	if err != nil {
 		return err
@@ -51,16 +52,19 @@ func (f *Firecracker) BootVM(ctx context.Context, inVolume, outVolume string) er
 		return err
 	}
 	vsockPath := filepath.Join(vmDir, "firecracker-vsock.sock")
-	proxy, err := f.startProxy(ctx, vsockPath)
+	proxy, err := f.startProxy(ctx, vsockPath, proxyIndexFile)
 	if err != nil {
 		return err
 	}
-	defer proxy.Process.Kill()
-
+	defer func() {
+		f.log.Info("signalling proxy")
+		proxy.Process.Signal(syscall.SIGTERM)
+		proxy.Wait()
+	}()
 	return f.bootVM(ctx, vmDir, vmRoot, vmSrc, outVolume, vsockPath)
 }
 
-func (f *Firecracker) startProxy(ctx context.Context, vsockPath string) (*exec.Cmd, error) {
+func (f *Firecracker) startProxy(ctx context.Context, vsockPath, proxyIndexFile string) (*exec.Cmd, error) {
 	f.log.Info("starting proxy", "path", vsockPath)
 
 	exe, err := os.Executable()
@@ -71,9 +75,12 @@ func (f *Firecracker) startProxy(ctx context.Context, vsockPath string) (*exec.C
 	args := []string{
 		"proxy",
 		"--socket", fmt.Sprintf("%s_1024", vsockPath),
+		"--fileIndex", proxyIndexFile,
 	}
 	cmd := exec.CommandContext(ctx, exe, args...)
-	if err := cmd.Start(); err != err {
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
 	return cmd, nil

@@ -38,6 +38,10 @@ var buildCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		indexFile, err := flags.GetString(fileIndex)
+		if err != nil {
+			return err
+		}
 		l.Info("building", "owner", owner, "repo", repo, "ref", ref)
 
 		gh := github.NewClient(&http.Client{})
@@ -66,7 +70,7 @@ var buildCmd = &cobra.Command{
 			_ = os.Remove(outputTmp)
 			return err
 		}
-		if err := fc.BootVM(ctx, src, outputTmp); err != nil {
+		if err := fc.BootVM(ctx, src, outputTmp, indexFile); err != nil {
 			_ = os.Remove(outputTmp)
 			return err
 		}
@@ -75,8 +79,10 @@ var buildCmd = &cobra.Command{
 }
 
 func init() {
-	buildCmd.Flags().String(repoOwner, "thepwagner", "GitHub repository owner")
-	buildCmd.Flags().StringP(repoName, "r", "archivist", "GitHub repository name")
-	buildCmd.Flags().String(repoRef, "3817d505e8bb39f43287256f3086f82e4b56374b", "GitHub repository ref")
+	flags := buildCmd.Flags()
+	flags.String(repoOwner, "thepwagner", "GitHub repository owner")
+	flags.StringP(repoName, "r", "archivist", "GitHub repository name")
+	flags.String(repoRef, "3817d505e8bb39f43287256f3086f82e4b56374b", "GitHub repository ref")
+	flags.StringP(fileIndex, "f", "", "index to load")
 	rootCmd.AddCommand(buildCmd)
 }

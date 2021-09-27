@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/go-logr/logr"
@@ -19,11 +20,14 @@ type FileStorage struct {
 
 var _ Storage = (*FileStorage)(nil)
 
-func NewFileStorage(log logr.Logger, blobDir string) *FileStorage {
+func NewFileStorage(log logr.Logger, blobDir string) (*FileStorage, error) {
+	if err := os.MkdirAll(blobDir, 0750); err != nil {
+		return nil, err
+	}
 	return &FileStorage{
 		log:     log,
 		blobDir: blobDir,
-	}
+	}, nil
 }
 
 func (s *FileStorage) Load(data *URLData) ([]byte, error) {
