@@ -6,16 +6,15 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync/atomic"
+	"syscall"
 
-	"github.com/firecracker-microvm/firecracker-go-sdk"
-	"github.com/firecracker-microvm/firecracker-go-sdk/client/models"
 	"github.com/go-logr/logr"
 )
 
 type Firecracker struct {
 	log      logr.Logger
 	runDir   string
+	kernel   string
 	rootImg  string
 	vsockCID uint32
 }
@@ -24,6 +23,7 @@ func NewFirecracker(l logr.Logger) *Firecracker {
 	return &Firecracker{
 		log:      l,
 		runDir:   "/mnt/run",
+		kernel:   "/home/pwagner/hermit/tmp/kernel/vmlinux",
 		rootImg:  "/mnt/root.img",
 		vsockCID: 2,
 	}
@@ -46,54 +46,32 @@ func (f *Firecracker) BootVM(ctx context.Context, inVolume, outVolume string) er
 	if err := CopyVolume(ctx, inVolume, vmSrc); err != nil {
 		return err
 	}
+	vsockPath := filepath.Join(vmDir, "firecracker-vsock.sock")
+	proxy, err := f.startProxy(ctx, vsockPath)
+	if err != nil {
+		return err
+	}
+	defer proxy.Kill()
 
-	fcSockPath := filepath.Join(vmDir, "firecracker.sock")
-	// FIXME: hardcoded until proxies are launched
-	vsockPath := "/tmp/firecracker-vsock.sock"
-	defer os.Remove(vsockPath)
-	vsockCID := atomic.AddUint32(&f.vsockCID, 1)
+	return f.bootVM(ctx, vmDir, vmRoot, vmSrc, outVolume, vsockPath)
+}
 
-	cfg := firecracker.Config{
-		SocketPath:      fcSockPath,
-		KernelImagePath: "/home/pwagner/hermit/tmp/kernel/vmlinux",
-		KernelArgs:      "console=ttyS0 noapic reboot=k panic=1 pci=off random.trust_cpu=on nomodules quiet",
-		Drives: firecracker.NewDrivesBuilder(vmRoot).
-			AddDrive(vmSrc, false).
-			AddDrive(outVolume, false).
-			Build(),
-		MachineCfg: models.MachineConfiguration{
-			VcpuCount:  firecracker.Int64(16),
-			MemSizeMib: firecracker.Int64(8192),
-			HtEnabled:  firecracker.Bool(true),
-		},
-		VsockDevices: []firecracker.VsockDevice{
-			{
-				ID:   filepath.Base(vmDir),
-				Path: vsockPath,
-				CID:  vsockCID,
+func (f *Firecracker) startProxy(ctx context.Context, vsockPath string) (*os.Process, error) {
+	f.log.Info("starting proxy", "path", vsockPath)
+	attr := &os.ProcAttr{
+		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
+		Sys: &syscall.SysProcAttr{
+			Credential: &syscall.Credential{
+				Uid: uint32(65534),
+				Gid: uint32(65534),
 			},
 		},
 	}
-
-	cmd := firecracker.VMCommandBuilder{}.
-		WithBin("firecracker").
-		WithSocketPath(fcSockPath).
-		WithStdout(os.Stdout).
-		WithStderr(os.Stderr).
-		WithStdin(os.Stdin).
-		Build(ctx)
-
-	m, err := firecracker.NewMachine(ctx, cfg, firecracker.WithProcessRunner(cmd))
-	if err != nil {
-		return fmt.Errorf("failed to create firecracker machine: %w", err)
+	args := []string{
+		os.Args[0],
+		"proxy",
+		"--socket",
+		fmt.Sprintf("%s_1024", vsockPath),
 	}
-	if err := m.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start firecracker machine: %w", err)
-	}
-
-	// wait for VMM to execute
-	if err := m.Wait(ctx); err != nil {
-		return fmt.Errorf("error waiting for firecracker machine: %w", err)
-	}
-	return nil
+	return os.StartProcess(os.Args[0], args, attr)
 }

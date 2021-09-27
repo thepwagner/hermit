@@ -15,10 +15,11 @@ import (
 // Proxy acts as an HTTP proxy, and TLS interceptor.
 // HTTP CONNECT requests, as a client would issue for an HTTPS server, are intercepted by a self-signed CA.
 type Proxy struct {
-	handler http.Handler
-	log     logr.Logger
-	addr    string
-	pk      *ecdsa.PrivateKey
+	handler    http.Handler
+	log        logr.Logger
+	addr       string
+	socketPath string
+	pk         *ecdsa.PrivateKey
 
 	certs *CertIssuer
 	srv   *http.Server
@@ -51,8 +52,14 @@ func NewProxy(handler http.Handler, opts ...ProxyOpt) (*Proxy, error) {
 	p.log.Info("certificate issuer", "key", fmt.Sprintf("%x", p.pk.PublicKey.X.Bytes()))
 
 	// Bind first, so we can read a randomly assigned port
-	// l, err := net.Listen("tcp4", p.addr)
-	l, err := net.Listen("unix", "/tmp/firecracker-vsock.sock_1024")
+	var l net.Listener
+	if p.socketPath != "" {
+		l, err = net.Listen("unix", p.socketPath)
+	} else if p.addr != "" {
+		l, err = net.Listen("tcp4", p.addr)
+	} else {
+		return nil, errors.New("no address or socket path specified")
+	}
 	if err != nil {
 		return nil, fmt.Errorf("binding listener: %w", err)
 	}
@@ -77,9 +84,10 @@ func ProxyWithLog(log logr.Logger) ProxyOpt {
 	}
 }
 
-func ProxyWithAddr(addr string) ProxyOpt {
+func ProxyWithSocketPath(socketPath string) ProxyOpt {
 	return func(p *Proxy) {
-		p.addr = addr
+		p.addr = ""
+		p.socketPath = socketPath
 	}
 }
 
