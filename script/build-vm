@@ -3,16 +3,17 @@ set -e
 
 ROOT=$(cd "$(dirname "$0")/.."; pwd)
 
-mkdir -p "$ROOT/tmp"
-# ROOT_IMG="$ROOT/tmp/root.img"
+TMP_DIR="/mnt/tmp"
 ROOT_IMG="/mnt/root.img"
+CACHE_DIR="/mnt/cache/vm"
+
+mkdir -p "$TMP_DIR"
 
 rm -f "$ROOT_IMG"
 truncate -s 4G "$ROOT_IMG"
 /sbin/mkfs.ext4 -m 0 "$ROOT_IMG"
 
-# BUILD_DIR=$(mktemp -d -p "$ROOT/tmp")
-BUILD_DIR=$(mktemp -d -p "/mnt/tmp")
+BUILD_DIR=$(mktemp -d -p "$TMP_DIR")
 sudo mount -o loop "$ROOT_IMG" "$BUILD_DIR"
 trap 'sudo umount "$BUILD_DIR"; rm -Rf "$BUILD_DIR"' EXIT
 set -x
@@ -22,5 +23,5 @@ sudo buildctl build \
   --local context="$ROOT" \
   --local dockerfile="$ROOT/vm/root" \
   --output "type=local,dest=$BUILD_DIR" \
-  --import-cache type=local,src=/mnt/pwagner/vm \
-  --export-cache type=local,dest=/mnt/pwagner/vm
+  --import-cache "type=local,src=$CACHE_DIR" \
+  --export-cache "type=local,dest=$CACHE_DIR"
