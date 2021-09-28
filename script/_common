@@ -1,0 +1,11 @@
+#!/bin/bash
+
+export REPO_ROOT=$(cd "$(dirname "$0")/.."; pwd)
+
+# Where to put VM resources: kernel and root
+export VM_DIR="/mnt/vm"
+mkdir -p "$VM_DIR"
+
+# Buildkit build cache
+export CACHE_DIR="/mnt/cache"
+mkdir -p "$CACHE_DIR"

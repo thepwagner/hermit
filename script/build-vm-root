@@ -1,0 +1,37 @@
+#!/bin/bash
+set -e
+
+source "$(dirname "$0")/_common"
+
+ROOT_IMG="${VM_DIR}/root.img"
+ROOT_IMAGE_SIZE=4G
+
+create_root_image() {
+  rm -f "$ROOT_IMG"
+  truncate -s "$ROOT_IMAGE_SIZE" "$ROOT_IMG"
+  /sbin/mkfs.ext4 -m 0 "$ROOT_IMG"
+}
+
+mount_root_image() {
+  MOUNT_POINT=$(mktemp -d)
+  sudo mount -o loop "$ROOT_IMG" "$MOUNT_POINT"
+  trap 'sudo umount "$MOUNT_POINT"; rm -Rf "$MOUNT_POINT"' EXIT
+}
+
+fill_root_image() {
+  buildctl build \
+    --frontend dockerfile.v0 \
+    --local context="$REPO_ROOT" \
+    --local dockerfile="$REPO_ROOT/vm/root" \
+    --output "type=local,dest=$MOUNT_POINT" \
+    --import-cache "type=local,src=$CACHE_DIR/root" \
+    --export-cache "type=local,dest=$CACHE_DIR/root"
+}
+
+main() {
+  create_root_image
+  mount_root_image
+  fill_root_image
+}
+
+main

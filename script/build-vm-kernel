@@ -1,0 +1,13 @@
+#!/bin/bash
+set -e
+
+source "$(dirname "$0")/_common"
+
+buildctl build \
+  --frontend dockerfile.v0 \
+  --local context="$REPO_ROOT/vm/kernel" \
+  --local dockerfile="$REPO_ROOT/vm/kernel" \
+  --output "type=local,dest=$VM_DIR" \
+  --progress plain \
+  --import-cache "type=local,src=$CACHE_DIR/kernel" \
+  --export-cache "type=local,dest=$CACHE_DIR/kernel"
