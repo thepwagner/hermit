@@ -110,8 +110,8 @@ func hackDockerfile(path string) (string, error) {
 
 		if !strings.Contains(l, "scratch") { // awkwardly bad
 			fmt.Fprintf(&hacked, "ADD %s %s\n", hermitCertURL, hermitCert)
-			fmt.Fprintf(&hacked, "ARG GONOSUMDB=*\n")
-			fmt.Fprintf(&hacked, "RUN update-ca-certificates || true\n")
+			// fmt.Fprintf(&hacked, "ARG GONOSUMDB=*\n")
+			// fmt.Fprintf(&hacked, "RUN update-ca-certificates || true\n")
 		} else {
 			open = false
 		}

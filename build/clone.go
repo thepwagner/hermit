@@ -11,20 +11,27 @@ import (
 	"github.com/google/go-github/v39/github"
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
+	"gopkg.in/src-d/go-git.v4/plumbing/transport"
+	"gopkg.in/src-d/go-git.v4/plumbing/transport/http"
 )
 
 type GitCloner struct {
 	log         logr.Logger
 	gh          *github.Client
+	auth        transport.AuthMethod
 	cloneDir    string
 	cloneSizeMB int
 }
 
-func NewGitCloner(log logr.Logger, gh *github.Client, cloneDir string) *GitCloner {
+func NewGitCloner(log logr.Logger, gh *github.Client, ghToken, cloneDir string) *GitCloner {
 	return &GitCloner{
-		log:         log,
-		gh:          gh,
-		cloneDir:    cloneDir,
+		log:      log,
+		gh:       gh,
+		cloneDir: cloneDir,
+		auth: &http.BasicAuth{
+			Username: "x-access-token",
+			Password: ghToken,
+		},
 		cloneSizeMB: 512,
 	}
 }
@@ -50,7 +57,7 @@ func (g *GitCloner) Clone(ctx context.Context, owner, repo, commit string) (stri
 	// Skim the git history for any parents that are already checked out:
 	parent, err := g.existingParent(ctx, owner, repo, commit)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	if parent != "" {
 		g.log.Info("found existing parent", "src", f, "parent", parent)
@@ -80,13 +87,14 @@ func (g *GitCloner) Clone(ctx context.Context, owner, repo, commit string) (stri
 		if err != nil {
 			return "", err
 		}
-		if err := r.FetchContext(ctx, &git.FetchOptions{}); err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
+		if err := r.FetchContext(ctx, &git.FetchOptions{Auth: g.auth}); err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 			return "", fmt.Errorf("fetching to update: %w", err)
 		}
 	} else {
 		g.log.Info("cloning in to volume", "mnt", mnt.Path())
 		r, err = git.PlainClone(mnt.Path(), false, &git.CloneOptions{
-			URL: fmt.Sprintf("https://github.com/%s/%s.git", owner, repo),
+			URL:  fmt.Sprintf("https://github.com/%s/%s.git", owner, repo),
+			Auth: g.auth,
 		})
 		if err != nil {
 			return "", err

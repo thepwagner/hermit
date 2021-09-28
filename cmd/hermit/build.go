@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/thepwagner/hermit/build"
 	"github.com/thepwagner/hermit/log"
+	"golang.org/x/oauth2"
 )
 
 const (
@@ -43,10 +43,13 @@ var buildCmd = &cobra.Command{
 			return err
 		}
 		l.Info("building", "owner", owner, "repo", repo, "ref", ref)
+		ghToken := os.Getenv("GITHUB_TOKEN")
 
-		gh := github.NewClient(&http.Client{})
-		cloner := build.NewGitCloner(l, gh, srcDir)
 		ctx := cmd.Context()
+		ghTokenSource := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: ghToken})
+		gh := github.NewClient(oauth2.NewClient(ctx, ghTokenSource))
+		cloner := build.NewGitCloner(l, gh, ghToken, srcDir)
+
 		src, err := cloner.Clone(ctx, owner, repo, ref)
 		if err != nil {
 			return err
@@ -80,9 +83,9 @@ var buildCmd = &cobra.Command{
 
 func init() {
 	flags := buildCmd.Flags()
-	flags.String(repoOwner, "thepwagner", "GitHub repository owner")
-	flags.StringP(repoName, "r", "archivist", "GitHub repository name")
-	flags.String(repoRef, "3817d505e8bb39f43287256f3086f82e4b56374b", "GitHub repository ref")
+	flags.String(repoOwner, "thepwagner-org", "GitHub repository owner")
+	flags.StringP(repoName, "r", "debian-bullseye", "GitHub repository name")
+	flags.String(repoRef, "12eef3d14eaf08b1753b352feb3d552013171064", "GitHub repository ref")
 	flags.StringP(fileIndex, "f", "", "index to load")
 	rootCmd.AddCommand(buildCmd)
 }
