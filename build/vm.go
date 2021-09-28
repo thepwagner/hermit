@@ -24,8 +24,8 @@ func NewFirecracker(l logr.Logger) (*Firecracker, error) {
 	f := &Firecracker{
 		log:      l,
 		runDir:   "/mnt/run",
-		kernel:   "/home/pwagner/hermit/tmp/kernel/vmlinux",
-		rootImg:  "/mnt/root.img",
+		kernel:   "/mnt/vm/vmlinux",
+		rootImg:  "/mnt/vm/root.img",
 		vsockCID: 2,
 	}
 	if err := os.MkdirAll(f.runDir, 0750); err != nil {

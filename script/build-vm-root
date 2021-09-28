@@ -19,7 +19,8 @@ mount_root_image() {
 }
 
 fill_root_image() {
-  buildctl build \
+  # must be run as root to write to $MOUNT_POINT
+  sudo buildctl build \
     --frontend dockerfile.v0 \
     --local context="$REPO_ROOT" \
     --local dockerfile="$REPO_ROOT/vm/root" \
