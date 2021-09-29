@@ -18,8 +18,11 @@ const (
 	proxySocket    = "socket"
 )
 
+// proxyCmd is an internal helper which binds the intercepting proxy to a unix socket.
+// Called by other commands to provide a network to virtual machines.
 var proxyCmd = &cobra.Command{
-	Use: "proxy",
+	Use:    "proxy",
+	Hidden: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		flags := cmd.Flags()
 		fsDir, err := flags.GetString(fileStorageDir)

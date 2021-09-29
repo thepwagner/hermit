@@ -17,7 +17,8 @@ func TestSnapshotter(t *testing.T) {
 	snap := proxy.NewSnapshot()
 
 	tmpDir := t.TempDir()
-	storage := proxy.NewFileStorage(l, tmpDir)
+	storage, err := proxy.NewFileStorage(l, tmpDir)
+	require.NoError(t, err)
 	snapshotter := proxy.NewSnapshotter(l, snap, storage)
 
 	srv := httptest.NewServer(teapot)
