@@ -3,6 +3,7 @@ module github.com/thepwagner/hermit
 go 1.17
 
 require (
+	github.com/bradleyfalzon/ghinstallation v1.1.1
 	github.com/firecracker-microvm/firecracker-go-sdk v0.22.0
 	github.com/go-logr/logr v1.1.0
 	github.com/go-redis/redis/v8 v8.11.3
@@ -15,7 +16,6 @@ require (
 	github.com/spf13/cobra v1.0.0
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
-	golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	gopkg.in/src-d/go-git.v4 v4.13.1
 )
@@ -36,6 +36,7 @@ require (
 	github.com/containernetworking/cni v0.8.1 // indirect
 	github.com/containernetworking/plugins v0.9.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v20.10.7+incompatible // indirect
@@ -59,6 +60,7 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4-0.20210608040537-544b4180ac70 // indirect
+	github.com/google/go-github/v29 v29.0.2 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0 // indirect
@@ -97,10 +99,10 @@ require (
 	go.opentelemetry.io/otel/trace v1.0.0-RC1 // indirect
 	go.opentelemetry.io/proto/otlp v0.9.0 // indirect
 	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781 // indirect
+	golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f // indirect
 	golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1 // indirect
 	golang.org/x/text v0.3.6 // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
-	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20201110150050-8816d57aaa9a // indirect
 	google.golang.org/grpc v1.38.0 // indirect
 	google.golang.org/protobuf v1.26.0 // indirect

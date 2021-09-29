@@ -13,26 +13,26 @@ import (
 	"github.com/firecracker-microvm/firecracker-go-sdk/client/models"
 )
 
-func (f *Firecracker) bootVM(ctx context.Context, vmDir, vmRoot, vmSrc, outVolume, vsockPath string) error {
-	fcSockPath := filepath.Join(vmDir, "firecracker.sock")
+func (f *Firecracker) bootVM(ctx context.Context, buildTmp, vmRoot, inVolume, outVolume string) error {
+	fcSockPath := filepath.Join(buildTmp, "firecracker.sock")
 	vsockCID := atomic.AddUint32(&f.vsockCID, 1)
 	cfg := firecracker.Config{
 		SocketPath:      fcSockPath,
 		KernelImagePath: f.kernel,
 		KernelArgs:      "console=ttyS0 noapic reboot=k panic=1 pci=off random.trust_cpu=on nomodules quiet",
 		Drives: firecracker.NewDrivesBuilder(vmRoot).
-			AddDrive(vmSrc, false).
+			AddDrive(inVolume, true).
 			AddDrive(outVolume, false).
 			Build(),
 		MachineCfg: models.MachineConfiguration{
-			VcpuCount:  firecracker.Int64(16),
-			MemSizeMib: firecracker.Int64(8192),
+			VcpuCount:  firecracker.Int64(2),
+			MemSizeMib: firecracker.Int64(2048),
 			HtEnabled:  firecracker.Bool(true),
 		},
 		VsockDevices: []firecracker.VsockDevice{
 			{
-				ID:   filepath.Base(vmDir),
-				Path: vsockPath,
+				ID:   filepath.Base(buildTmp),
+				Path: vsockPath(buildTmp),
 				CID:  vsockCID,
 			},
 		},
@@ -43,7 +43,6 @@ func (f *Firecracker) bootVM(ctx context.Context, vmDir, vmRoot, vmSrc, outVolum
 		WithSocketPath(fcSockPath).
 		WithStdout(os.Stdout).
 		WithStderr(os.Stderr).
-		WithStdin(os.Stdin).
 		Build(ctx)
 
 	m, err := firecracker.NewMachine(ctx, cfg, firecracker.WithProcessRunner(cmd))

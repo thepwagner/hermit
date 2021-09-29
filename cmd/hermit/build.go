@@ -1,15 +1,16 @@
 package main
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
+	"encoding/json"
+	"io/ioutil"
+	"net/http"
 
+	"github.com/bradleyfalzon/ghinstallation"
 	"github.com/google/go-github/v39/github"
 	"github.com/spf13/cobra"
 	"github.com/thepwagner/hermit/build"
+	"github.com/thepwagner/hermit/hooks"
 	"github.com/thepwagner/hermit/log"
-	"golang.org/x/oauth2"
 )
 
 const (
@@ -38,46 +39,56 @@ var buildCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		indexFile, err := flags.GetString(fileIndex)
+		indexFile, err := flags.GetString(proxyIndex)
 		if err != nil {
 			return err
 		}
 		l.Info("building", "owner", owner, "repo", repo, "ref", ref)
-		ghToken := os.Getenv("GITHUB_TOKEN")
 
+		const (
+			appID          = 141544
+			installationID = 19814209
+		)
+
+		ghTransport, err := ghinstallation.NewKeyFromFile(http.DefaultTransport, appID, installationID, "build-hermit.2021-09-29.private-key.pem")
+		if err != nil {
+			return err
+		}
 		ctx := cmd.Context()
-		ghTokenSource := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: ghToken})
-		gh := github.NewClient(oauth2.NewClient(ctx, ghTokenSource))
+		ghToken, err := ghTransport.Token(ctx)
+		if err != nil {
+			return err
+		}
+
+		gh := github.NewClient(&http.Client{Transport: ghTransport})
 		cloner := build.NewGitCloner(l, gh, ghToken, srcDir)
-
-		src, err := cloner.Clone(ctx, owner, repo, ref)
+		fc := build.NewFirecracker(l)
+		builder, err := build.NewBuilder(l, cloner, fc, outputDir)
 		if err != nil {
 			return err
 		}
-		l.Info("source volume created", "src", src)
 
-		if err := os.MkdirAll(outputDir, 0750); err != nil {
-			return err
-		}
-		outputTmp, err := build.TempFile(outputDir, fmt.Sprintf("%s-*", ref))
+		// FIXME: test hookshandler
+		var e github.PushEvent
+		fixture, err := ioutil.ReadFile("hooks/testdata/push.json")
 		if err != nil {
 			return err
 		}
-		if err := build.CreateVolume(ctx, outputTmp, 256); err != nil {
-			_ = os.Remove(outputTmp)
+		if err := json.Unmarshal(fixture, &e); err != nil {
 			return err
 		}
+		h := hooks.NewHandler(l, gh, builder)
+		if err := h.OnPush(ctx, &e); err != nil {
+			return err
+		}
+		return nil
 
-		fc, err := build.NewFirecracker(l)
-		if err != nil {
-			_ = os.Remove(outputTmp)
-			return err
-		}
-		if err := fc.BootVM(ctx, src, outputTmp, indexFile); err != nil {
-			_ = os.Remove(outputTmp)
-			return err
-		}
-		return os.Rename(outputTmp, filepath.Join(outputDir, fmt.Sprintf("%s.img", ref)))
+		return builder.Build(ctx, &build.BuildParams{
+			Owner:      owner,
+			Repo:       repo,
+			Ref:        ref,
+			ProxyIndex: indexFile,
+		})
 	},
 }
 
@@ -85,7 +96,7 @@ func init() {
 	flags := buildCmd.Flags()
 	flags.String(repoOwner, "thepwagner-org", "GitHub repository owner")
 	flags.StringP(repoName, "r", "debian-bullseye", "GitHub repository name")
-	flags.String(repoRef, "12eef3d14eaf08b1753b352feb3d552013171064", "GitHub repository ref")
-	flags.StringP(fileIndex, "f", "", "index to load")
+	flags.String(repoRef, "a055335207b183e2d0c4b9f8c04e0e9877d87eba", "GitHub repository ref")
+	flags.StringP(proxyIndex, "f", "", "index to load")
 	rootCmd.AddCommand(buildCmd)
 }

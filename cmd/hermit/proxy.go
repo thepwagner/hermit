@@ -14,7 +14,7 @@ import (
 
 const (
 	fileStorageDir = "fileStore"
-	fileIndex      = "fileIndex"
+	proxyIndex     = "index"
 	proxySocket    = "socket"
 )
 
@@ -29,7 +29,7 @@ var proxyCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		indexFile, err := flags.GetString(fileIndex)
+		indexFile, err := flags.GetString(proxyIndex)
 		if err != nil {
 			return err
 		}
@@ -101,7 +101,7 @@ func loadSnapshot(indexDir, indexFile string) (*proxy.Snapshot, error) {
 func init() {
 	flags := proxyCmd.Flags()
 	flags.String(fileStorageDir, "/mnt/storage", "directory for file storage")
-	flags.StringP(fileIndex, "f", "", "index to load")
+	flags.StringP(proxyIndex, "f", "", "index to load")
 	flags.String(proxySocket, "", "index to load")
 	rootCmd.AddCommand(proxyCmd)
 }
