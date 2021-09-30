@@ -1,15 +1,8 @@
 package main
 
 import (
-	"encoding/json"
-	"io/ioutil"
-	"net/http"
-
-	"github.com/bradleyfalzon/ghinstallation"
-	"github.com/google/go-github/v39/github"
 	"github.com/spf13/cobra"
 	"github.com/thepwagner/hermit/build"
-	"github.com/thepwagner/hermit/hooks"
 	"github.com/thepwagner/hermit/log"
 )
 
@@ -45,45 +38,11 @@ var buildCmd = &cobra.Command{
 		}
 		l.Info("building", "owner", owner, "repo", repo, "ref", ref)
 
-		const (
-			appID          = 141544
-			installationID = 19814209
-		)
-
-		ghTransport, err := ghinstallation.NewKeyFromFile(http.DefaultTransport, appID, installationID, "build-hermit.2021-09-29.private-key.pem")
+		builder, err := newBuilder(cmd, l)
 		if err != nil {
 			return err
 		}
-		ctx := cmd.Context()
-		ghToken, err := ghTransport.Token(ctx)
-		if err != nil {
-			return err
-		}
-
-		gh := github.NewClient(&http.Client{Transport: ghTransport})
-		cloner := build.NewGitCloner(l, gh, ghToken, srcDir)
-		fc := build.NewFirecracker(l)
-		builder, err := build.NewBuilder(l, cloner, fc, outputDir)
-		if err != nil {
-			return err
-		}
-
-		// FIXME: test hookshandler
-		var e github.PushEvent
-		fixture, err := ioutil.ReadFile("hooks/testdata/push.json")
-		if err != nil {
-			return err
-		}
-		if err := json.Unmarshal(fixture, &e); err != nil {
-			return err
-		}
-		h := hooks.NewHandler(l, gh, builder)
-		if err := h.OnPush(ctx, &e); err != nil {
-			return err
-		}
-		return nil
-
-		return builder.Build(ctx, &build.BuildParams{
+		return builder.Build(cmd.Context(), &build.BuildParams{
 			Owner:      owner,
 			Repo:       repo,
 			Ref:        ref,

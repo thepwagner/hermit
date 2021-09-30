@@ -4,7 +4,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/thepwagner/hermit/build"
+	"github.com/thepwagner/hermit/guest"
 	"github.com/thepwagner/hermit/log"
 )
 
@@ -13,7 +13,7 @@ var buildCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 		l := log.New()
-		b, err := build.NewBuilder(ctx, l, "/output")
+		b, err := guest.NewBuilder(ctx, l, "/output")
 		if err != nil {
 			return err
 		}
