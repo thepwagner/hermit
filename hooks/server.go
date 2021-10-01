@@ -72,6 +72,7 @@ func (s *Server) OnPush(r *http.Request, payload []byte) error {
 		RepoOwner:       repoOwner,
 		RepoName:        repoName,
 		SHA:             pushEvt.GetAfter(),
+		Tree:            pushEvt.GetHeadCommit().GetTreeID(),
 		Ref:             pushEvt.GetRef(),
 		BuildCheckRunID: buildCheckRun.GetID(),
 		DefaultBranch:   pushEvt.GetRef() == fmt.Sprintf("refs/heads/%s", repo.GetDefaultBranch()),
@@ -89,6 +90,7 @@ type BuildRequest struct {
 	RepoName        string
 	Ref             string
 	SHA             string
+	Tree            string
 	BuildCheckRunID int64
 	DefaultBranch   bool
 }

@@ -12,7 +12,7 @@ import (
 
 func TestRedisStorage(t *testing.T) {
 	r := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
-	s := proxy.NewRedisStorage(r)
+	s := proxy.NewRedisStorage(r, "")
 
 	b := make([]byte, 64)
 	rand.Read(b)

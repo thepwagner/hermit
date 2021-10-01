@@ -52,11 +52,10 @@ var proxyCmd = &cobra.Command{
 		}
 		if indexOut != "" {
 			defer func() {
-				fn, err := snap.Save(indexOut)
-				if err != nil {
+				if err := snap.Save(indexOut); err != nil {
 					l.Error(err, "error saving snapshot")
 				} else {
-					l.Info("saved snapshot", "file", fn)
+					l.Info("saved snapshot", "file", indexOut)
 				}
 			}()
 		}

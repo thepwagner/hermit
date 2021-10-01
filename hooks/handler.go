@@ -1,14 +1,17 @@
 package hooks
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/go-redis/redis/v8"
 	"github.com/google/go-github/v39/github"
 	"github.com/thepwagner/hermit/build"
+	"github.com/thepwagner/hermit/proxy"
 )
 
 type Handler struct {
@@ -49,21 +52,26 @@ func (h *Handler) PushListener(ctx context.Context) {
 
 func (h *Handler) OnPush(ctx context.Context, e *BuildRequest) error {
 	h.log.Info("building push", "repo", fmt.Sprintf("%s/%s", e.RepoOwner, e.RepoName), "sha", e.SHA)
-	if err := h.pushCheckRunStatus(ctx, e, "in_progress", ""); err != nil {
+	if err := h.buildCheckRunStatus(ctx, e, "in_progress", ""); err != nil {
 		return err
 	}
-	bp := &build.BuildParams{
+	snap, err := h.builder.Build(ctx, &build.BuildParams{
 		Owner: e.RepoOwner,
 		Repo:  e.RepoName,
 		Ref:   e.SHA,
-	}
-	if err := h.builder.Build(ctx, bp); err != nil {
-		if err := h.pushCheckRunStatus(ctx, e, "completed", "failure"); err != nil {
+	})
+	if err != nil {
+		if err := h.buildCheckRunStatus(ctx, e, "completed", "failure"); err != nil {
 			h.log.Error(err, "failed to update  checkrun status")
 		}
 		return err
 	}
-	if err := h.pushCheckRunStatus(ctx, e, "completed", "success"); err != nil {
+	// fmt.Println("captured snap", snap.Data)
+	if err := h.pushSnapshot(ctx, e, snap); err != nil {
+		return err
+	}
+
+	if err := h.buildCheckRunStatus(ctx, e, "completed", "success"); err != nil {
 		return err
 	}
 
@@ -75,7 +83,7 @@ func (h *Handler) OnPush(ctx context.Context, e *BuildRequest) error {
 	return nil
 }
 
-func (h *Handler) pushCheckRunStatus(ctx context.Context, e *BuildRequest, status, conclusion string) error {
+func (h *Handler) buildCheckRunStatus(ctx context.Context, e *BuildRequest, status, conclusion string) error {
 	opts := github.UpdateCheckRunOptions{
 		Name:   buildCheckRunName,
 		Status: &status,
@@ -85,5 +93,56 @@ func (h *Handler) pushCheckRunStatus(ctx context.Context, e *BuildRequest, statu
 	}
 
 	_, _, err := h.gh.Checks.UpdateCheckRun(ctx, e.RepoOwner, e.RepoName, e.BuildCheckRunID, opts)
+	return err
+}
+
+func (h *Handler) pushSnapshot(ctx context.Context, e *BuildRequest, snap *proxy.Snapshot) error {
+	h.gh.Git.GetTree(ctx, e.RepoOwner, e.RepoName, e.Tree, true)
+
+	var entries []*github.TreeEntry
+	for host, index := range snap.ByHost() {
+		var buf bytes.Buffer
+		enc := json.NewEncoder(&buf)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(index); err != nil {
+			return err
+		}
+
+		entries = append(entries, &github.TreeEntry{
+			Path:    github.String(fmt.Sprintf(".hermit/network/%s.json", host)),
+			Mode:    github.String("100644"),
+			Type:    github.String("blob"),
+			Content: github.String(buf.String()),
+		})
+	}
+
+	tree, _, err := h.gh.Git.CreateTree(ctx, e.RepoOwner, e.RepoName, e.Tree, entries)
+	if err != nil {
+		return err
+	}
+	h.log.Info("created tree", "tree", tree.GetSHA(), "base_tree", e.Tree)
+	if tree.GetSHA() == e.Tree {
+		return nil
+	}
+
+	date := time.Now()
+	commit, _, err := h.gh.Git.CreateCommit(ctx, e.RepoOwner, e.RepoName, &github.Commit{
+		Tree:    tree,
+		Message: github.String("Hermit network snapshot"),
+		Author:  &github.CommitAuthor{Name: github.String("Hermit"), Email: github.String("70587923+wapwagner@users.noreply.github.com"), Date: &date},
+		Parents: []*github.Commit{{SHA: &e.SHA}},
+	})
+	if err != nil {
+		return err
+	}
+	h.log.Info("created commit", "commit", commit.GetSHA())
+
+	_, _, err = h.gh.Git.UpdateRef(ctx, e.RepoOwner, e.RepoName, &github.Reference{
+		Ref: &e.Ref,
+		Object: &github.GitObject{
+			SHA: commit.SHA,
+		},
+	}, false)
+	h.log.Info("updated ref, push complete")
 	return err
 }
