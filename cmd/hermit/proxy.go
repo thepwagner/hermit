@@ -1,10 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -14,7 +12,8 @@ import (
 
 const (
 	fileStorageDir = "fileStore"
-	proxyIndex     = "index"
+	proxyIndexIn   = "index-in"
+	proxyIndexOut  = "index-out"
 	proxySocket    = "socket"
 )
 
@@ -25,11 +24,15 @@ var proxyCmd = &cobra.Command{
 	Hidden: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		flags := cmd.Flags()
-		fsDir, err := flags.GetString(fileStorageDir)
+		redis, err := redisClient(cmd)
 		if err != nil {
 			return err
 		}
-		indexFile, err := flags.GetString(proxyIndex)
+		indexIn, err := flags.GetString(proxyIndexIn)
+		if err != nil {
+			return err
+		}
+		indexOut, err := flags.GetString(proxyIndexOut)
 		if err != nil {
 			return err
 		}
@@ -43,32 +46,22 @@ var proxyCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		indexDir := filepath.Join(fsDir, "index")
-		if err := os.MkdirAll(indexDir, 0750); err != nil {
-			return err
-		}
-		snap, err := loadSnapshot(indexDir, indexFile)
+		snap, err := proxy.LoadSnapshot(indexIn)
 		if err != nil {
 			return err
 		}
-		defer func() {
-			fn, err := snap.Save(indexDir)
-			if err != nil {
-				l.Error(err, "error saving snapshot")
-			} else {
-				l.Info("saved snapshot", "file", fn)
-			}
-		}()
-
-		storage, err := proxy.NewFileStorage(l, filepath.Join(fsDir, "blobs"))
-		if err != nil {
-			return err
-		}
-		cachedStorage, err := proxy.NewLRUStorage(128, storage)
-		if err != nil {
-			return err
+		if indexOut != "" {
+			defer func() {
+				fn, err := snap.Save(indexOut)
+				if err != nil {
+					l.Error(err, "error saving snapshot")
+				} else {
+					l.Info("saved snapshot", "file", fn)
+				}
+			}()
 		}
 
+		storage := proxy.NewRedisStorage(redis, "")
 		proxyOpts := []proxy.ProxyOpt{
 			proxy.ProxyWithLog(l),
 			proxy.ProxyWithPrivateKey(pk),
@@ -77,7 +70,7 @@ var proxyCmd = &cobra.Command{
 			proxyOpts = append(proxyOpts, proxy.ProxyWithSocketPath(socketPath))
 		}
 
-		p, err := proxy.NewProxy(proxy.NewSnapshotter(l, snap, cachedStorage), proxyOpts...)
+		p, err := proxy.NewProxy(proxy.NewSnapshotter(l, snap, storage), proxyOpts...)
 		if err != nil {
 			return err
 		}
@@ -90,18 +83,11 @@ var proxyCmd = &cobra.Command{
 	},
 }
 
-func loadSnapshot(indexDir, indexFile string) (*proxy.Snapshot, error) {
-	if indexFile == "" {
-		return proxy.NewSnapshot(), nil
-	}
-	indexPath := filepath.Join(indexDir, fmt.Sprintf("%s.json", indexFile))
-	return proxy.LoadSnapshot(indexPath)
-}
-
 func init() {
 	flags := proxyCmd.Flags()
 	flags.String(fileStorageDir, "/mnt/storage", "directory for file storage")
-	flags.StringP(proxyIndex, "f", "", "index to load")
-	flags.String(proxySocket, "", "index to load")
+	flags.StringP(proxyIndexIn, "i", "", "index to load")
+	flags.StringP(proxyIndexOut, "o", "", "index to write")
+	flags.String(proxySocket, "", "unix socket path to bind")
 	rootCmd.AddCommand(proxyCmd)
 }

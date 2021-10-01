@@ -8,6 +8,7 @@ import (
 	"github.com/thepwagner/hermit/log"
 )
 
+// buildCmd executes the build inside the guest sandbox.
 var buildCmd = &cobra.Command{
 	Use: "build",
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -27,5 +28,5 @@ var buildCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(buildCmd)
+	guestCmd.AddCommand(buildCmd)
 }

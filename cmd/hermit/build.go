@@ -32,7 +32,7 @@ var buildCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		indexFile, err := flags.GetString(proxyIndex)
+		indexFile, err := flags.GetString(proxyIndexIn)
 		if err != nil {
 			return err
 		}
@@ -56,6 +56,7 @@ func init() {
 	flags.String(repoOwner, "thepwagner-org", "GitHub repository owner")
 	flags.StringP(repoName, "r", "debian-bullseye", "GitHub repository name")
 	flags.String(repoRef, "a055335207b183e2d0c4b9f8c04e0e9877d87eba", "GitHub repository ref")
-	flags.StringP(proxyIndex, "f", "", "index to load")
+	// TODO: this should be read from the ref instead
+	flags.StringP(proxyIndexIn, "i", "", "index to load")
 	rootCmd.AddCommand(buildCmd)
 }

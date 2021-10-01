@@ -16,6 +16,7 @@ const (
 	vsockProxyPort   = 1024
 )
 
+// proxyCmd forwards TCP requests to the host proxy via VSOCK.
 var proxyCmd = &cobra.Command{
 	Use: "proxy",
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -60,5 +61,5 @@ func handle(log logr.Logger, c net.Conn) {
 }
 
 func init() {
-	rootCmd.AddCommand(proxyCmd)
+	guestCmd.AddCommand(proxyCmd)
 }

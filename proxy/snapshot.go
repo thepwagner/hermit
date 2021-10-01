@@ -1,11 +1,8 @@
 package proxy
 
 import (
-	"crypto/sha256"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
-	"path/filepath"
 	"sync"
 )
 
@@ -21,6 +18,10 @@ func NewSnapshot() *Snapshot {
 }
 
 func LoadSnapshot(index string) (*Snapshot, error) {
+	if index == "" {
+		return NewSnapshot(), nil
+	}
+
 	b, err := ioutil.ReadFile(index)
 	if err != nil {
 		return nil, err
@@ -47,7 +48,7 @@ func (s *Snapshot) Set(key string, data *URLData) {
 }
 
 // Save writes this snapshot to a unique filename within the given directory
-func (s *Snapshot) Save(dir string) (string, error) {
+func (s *Snapshot) Save(fn string) (string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	b, err := json.Marshal(s.Data)
@@ -55,11 +56,6 @@ func (s *Snapshot) Save(dir string) (string, error) {
 		return "", err
 	}
 
-	h := sha256.New()
-	h.Write(b)
-	sha := h.Sum(nil)
-
-	fn := filepath.Join(dir, fmt.Sprintf("%x.json", sha))
 	if err := ioutil.WriteFile(fn, b, 0600); err != nil {
 		return "", err
 	}
