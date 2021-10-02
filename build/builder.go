@@ -2,6 +2,7 @@ package build
 
 import (
 	"archive/tar"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -55,23 +56,33 @@ type BuildParams struct {
 	OutputSizeMB int
 }
 
-func (b *Builder) Build(ctx context.Context, params *BuildParams) (*proxy.Snapshot, error) {
+type Result struct {
+	Snapshot *proxy.Snapshot
+	Summary  string
+	Output   string
+}
+
+func (b *Builder) Build(ctx context.Context, params *BuildParams) (*Result, error) {
+	res := &Result{}
 	clone, err := b.cloner.Clone(ctx, params.Owner, params.Repo, params.Ref)
 	if err != nil {
-		return nil, fmt.Errorf("cloning repo: %w", err)
+		res.Summary = "could not clone repo"
+		return res, fmt.Errorf("cloning repo: %w", err)
 	}
 	b.log.Info("source volume created", "src", clone.VolumePath)
 
 	buildTmp, err := ioutil.TempDir(b.runDir, "build-*")
 	if err != nil {
-		return nil, err
+		res.Summary = "could not create tempdir for build"
+		return res, err
 	}
 	defer os.RemoveAll(buildTmp)
 
 	// Use outputDir instead of buildTmp, in case they are on different volumes
 	outputTmp, err := TempFile(b.outputDir, fmt.Sprintf("%s-*", params.Ref))
 	if err != nil {
-		return nil, err
+		res.Summary = "could not create tempfile for output"
+		return res, err
 	}
 	defer func() { _ = os.Remove(outputTmp) }()
 	var outputSize int
@@ -81,64 +92,59 @@ func (b *Builder) Build(ctx context.Context, params *BuildParams) (*proxy.Snapsh
 		outputSize = 64 // 64MB ought to be enough for anybody
 	}
 	if err := CreateVolume(ctx, outputTmp, outputSize); err != nil {
-		return nil, err
+		res.Summary = "could not create output voulume"
+		return res, err
 	}
 	b.log.Info("output volume created", "src", outputTmp)
 
 	prx, err := b.startProxy(ctx, buildTmp, clone)
 	if err != nil {
-		return nil, err
+		res.Summary = "could not start proxy"
+		return res, err
 	}
-	if err := b.vm.BootVM(ctx, clone.VolumePath, outputTmp, buildTmp); err != nil {
+	var vmOutput bytes.Buffer
+	if err := b.vm.BootVM(ctx, clone.VolumePath, outputTmp, buildTmp, &vmOutput); err != nil {
 		_ = prx.Process.Kill()
-		return nil, err
+		res.Summary = "could not boot VM"
+		return res, err
 	}
+	res.Output = fmt.Sprintf("```\n%s\n```\n", vmOutput.String())
+
 	if err := prx.Process.Signal(syscall.SIGTERM); err != nil {
 		_ = prx.Process.Kill()
-		return nil, err
+		res.Summary = "could not stop proxy"
+		return res, err
 	}
 
-	outputMnt, err := MountVolume(ctx, outputTmp, "")
-	if err != nil {
-		return nil, err
-	}
-	defer outputMnt.Close(ctx)
-
-	// TODO: actually use image - push to registry?
-	outputTar, err := os.Open(filepath.Join(outputMnt.Path(), "image.tar"))
-	if err != nil {
-		return nil, err
-	}
-	defer outputTar.Close()
-	empty := true
-	for tarReader := tar.NewReader(outputTar); ; {
-		if _, err := tarReader.Next(); errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return nil, fmt.Errorf("reading tar: %w", err)
-		}
-		empty = false
-		break
-	}
-	if empty {
-		return nil, fmt.Errorf("no output generated")
+	if output, err := b.checkOutput(ctx, outputTmp); err != nil {
+		res.Summary = "could not check VM output"
+		return res, err
+	} else if !output {
+		res.Summary = "build produced no output"
+		return res, fmt.Errorf("build did not produce output")
 	}
 
 	// Rename to the final name, and avoid the deferred deletion.
 	if err := os.Rename(outputTmp, filepath.Join(b.outputDir, fmt.Sprintf("%s.img", params.Ref))); err != nil {
-		return nil, err
+		res.Summary = "build cleanup error"
+		return res, err
 	}
 
 	if err := prx.Wait(); err != nil {
-		return nil, err
+		res.Summary = "build cleanup error"
+		return res, err
 	}
 	b.log.Info("proxy shut down")
 
 	snap, err := proxy.LoadSnapshot(filepath.Join(buildTmp, "proxy-out.json"))
 	if err != nil {
-		return nil, err
+		res.Summary = "build cleanup error"
+		return res, err
 	}
-	return snap, nil
+
+	res.Snapshot = snap
+	res.Summary = "build succesful"
+	return res, nil
 }
 
 func (b *Builder) startProxy(ctx context.Context, buildTmp string, clone *Clone) (*exec.Cmd, error) {
@@ -173,4 +179,27 @@ func (b *Builder) startProxy(ctx context.Context, buildTmp string, clone *Clone)
 		return nil, err
 	}
 	return cmd, nil
+}
+
+func (b *Builder) checkOutput(ctx context.Context, outputTmp string) (bool, error) {
+	outputMnt, err := MountVolume(ctx, outputTmp, "")
+	if err != nil {
+		return false, err
+	}
+	defer outputMnt.Close(ctx)
+	outputTar, err := os.Open(filepath.Join(outputMnt.Path(), "image.tar"))
+	if err != nil {
+		return false, err
+	}
+	defer outputTar.Close()
+
+	for tarReader := tar.NewReader(outputTar); ; {
+		if _, err := tarReader.Next(); errors.Is(err, io.EOF) {
+			return false, nil
+		} else if err != nil {
+			return false, fmt.Errorf("reading tar: %w", err)
+		}
+
+		return true, nil
+	}
 }

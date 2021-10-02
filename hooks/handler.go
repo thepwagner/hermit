@@ -52,29 +52,30 @@ func (h *Handler) PushListener(ctx context.Context) {
 
 func (h *Handler) OnPush(ctx context.Context, e *BuildRequest) error {
 	h.log.Info("building push", "repo", fmt.Sprintf("%s/%s", e.RepoOwner, e.RepoName), "sha", e.SHA)
-	if err := h.buildCheckRunStatus(ctx, e, "in_progress", ""); err != nil {
+	if err := h.buildCheckRunStatus(ctx, e, "in_progress", "", &build.Result{}); err != nil {
 		return err
 	}
-	snap, err := h.builder.Build(ctx, &build.BuildParams{
+	result, err := h.builder.Build(ctx, &build.BuildParams{
 		Owner: e.RepoOwner,
 		Repo:  e.RepoName,
 		Ref:   e.SHA,
 	})
 	if err != nil {
-		if err := h.buildCheckRunStatus(ctx, e, "completed", "failure"); err != nil {
+		if err := h.buildCheckRunStatus(ctx, e, "completed", "failure", result); err != nil {
 			h.log.Error(err, "failed to update checkrun status")
 		}
 		return err
 	}
 
-	if err := h.pushSnapshot(ctx, e, snap); err != nil {
-		if err := h.buildCheckRunStatus(ctx, e, "completed", "failure"); err != nil {
+	if err := h.pushSnapshot(ctx, e, result.Snapshot); err != nil {
+		result.Summary = "snapshot error"
+		if err := h.buildCheckRunStatus(ctx, e, "completed", "failure", result); err != nil {
 			h.log.Error(err, "failed to update checkrun status")
 		}
 		return err
 	}
 
-	if err := h.buildCheckRunStatus(ctx, e, "completed", "success"); err != nil {
+	if err := h.buildCheckRunStatus(ctx, e, "completed", "success", result); err != nil {
 		return err
 	}
 
@@ -86,13 +87,20 @@ func (h *Handler) OnPush(ctx context.Context, e *BuildRequest) error {
 	return nil
 }
 
-func (h *Handler) buildCheckRunStatus(ctx context.Context, e *BuildRequest, status, conclusion string) error {
+func (h *Handler) buildCheckRunStatus(ctx context.Context, e *BuildRequest, status, conclusion string, res *build.Result) error {
 	opts := github.UpdateCheckRunOptions{
 		Name:   buildCheckRunName,
 		Status: &status,
 	}
 	if conclusion != "" {
 		opts.Conclusion = &conclusion
+	}
+	if res.Summary != "" {
+		opts.Output = &github.CheckRunOutput{
+			Title:   github.String("Build Output"),
+			Summary: &res.Summary,
+			Text:    &res.Output,
+		}
 	}
 
 	_, _, err := h.gh.Checks.UpdateCheckRun(ctx, e.RepoOwner, e.RepoName, e.BuildCheckRunID, opts)

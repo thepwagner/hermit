@@ -5,7 +5,7 @@ package build
 import (
 	"context"
 	"fmt"
-	"os"
+	"io"
 	"path/filepath"
 	"sync/atomic"
 
@@ -13,7 +13,7 @@ import (
 	"github.com/firecracker-microvm/firecracker-go-sdk/client/models"
 )
 
-func (f *Firecracker) bootVM(ctx context.Context, buildTmp, vmRoot, inVolume, outVolume string) error {
+func (f *Firecracker) bootVM(ctx context.Context, buildTmp, vmRoot, inVolume, outVolume string, out io.Writer) error {
 	fcSockPath := filepath.Join(buildTmp, "firecracker.sock")
 	vsockCID := atomic.AddUint32(&f.vsockCID, 1)
 	cfg := firecracker.Config{
@@ -41,8 +41,8 @@ func (f *Firecracker) bootVM(ctx context.Context, buildTmp, vmRoot, inVolume, ou
 	cmd := firecracker.VMCommandBuilder{}.
 		WithBin("firecracker").
 		WithSocketPath(fcSockPath).
-		WithStdout(os.Stdout).
-		WithStderr(os.Stderr).
+		WithStdout(out).
+		WithStderr(out).
 		Build(ctx)
 
 	m, err := firecracker.NewMachine(ctx, cfg, firecracker.WithProcessRunner(cmd))

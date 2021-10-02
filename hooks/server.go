@@ -59,10 +59,14 @@ func (s *Server) OnPush(r *http.Request, payload []byte) error {
 	repo := pushEvt.GetRepo()
 	repoOwner := repo.GetOwner().GetLogin()
 	repoName := repo.GetName()
+	sha := pushEvt.GetAfter()
+	if sha == "0000000000000000000000000000000000000000" {
+		return nil
+	}
 	buildCheckRun, _, err := s.gh.Checks.CreateCheckRun(r.Context(), repoOwner, repoName, github.CreateCheckRunOptions{
 		Name:    buildCheckRunName,
 		Status:  github.String("queued"),
-		HeadSHA: pushEvt.GetAfter(),
+		HeadSHA: sha,
 	})
 	if err != nil {
 		return err
@@ -71,7 +75,7 @@ func (s *Server) OnPush(r *http.Request, payload []byte) error {
 	b, err := json.Marshal(&BuildRequest{
 		RepoOwner:       repoOwner,
 		RepoName:        repoName,
-		SHA:             pushEvt.GetAfter(),
+		SHA:             sha,
 		Tree:            pushEvt.GetHeadCommit().GetTreeID(),
 		Ref:             pushEvt.GetRef(),
 		BuildCheckRunID: buildCheckRun.GetID(),

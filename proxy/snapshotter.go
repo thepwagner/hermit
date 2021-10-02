@@ -81,7 +81,7 @@ func (s *Snapshotter) captureResponse(w http.ResponseWriter, r *http.Request, ke
 	default:
 		// passthrough
 	}
-	if r.Method == http.MethodGet && !noStoreRequest(r) {
+	if r.Method == http.MethodGet && !noStoreRequest(r) && bufW.Code != http.StatusNotModified {
 		data := NewURLData(bufW)
 		s.snap.Set(key, data)
 
