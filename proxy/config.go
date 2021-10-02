@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 
@@ -29,6 +30,7 @@ func LoadConfigFile(fn string) (*Config, error) {
 		}
 		return nil, err
 	}
+	defer f.Close()
 	return LoadConfig(f)
 }
 
@@ -40,6 +42,7 @@ func LoadConfig(in io.Reader) (*Config, error) {
 
 	rules := make([]*Rule, 0, len(config.Rules))
 	for _, rawRule := range config.Rules {
+		fmt.Println("loading", rawRule.Pattern, rawRule.Action, ParseAction(rawRule.Action))
 		newRule, err := NewRule(rawRule.Pattern, ParseAction(rawRule.Action))
 		if err != nil {
 			return nil, err
@@ -62,6 +65,6 @@ func (c *Config) Save(fn string) error {
 	if err != nil {
 		return err
 	}
-
-	return yaml.NewEncoder(f).Encode(&config)
+	defer f.Close()
+	return yaml.NewEncoder(io.MultiWriter(f, os.Stdout)).Encode(&config)
 }

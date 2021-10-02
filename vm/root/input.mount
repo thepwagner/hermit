@@ -6,6 +6,7 @@ What=/dev/vdb
 Where=/input
 Type=ext4
 Options=noatime
+ReadWriteOnly=false
 
 [Install]
 WantedBy=multi-user.target

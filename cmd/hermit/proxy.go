@@ -80,7 +80,9 @@ var proxyCmd = &cobra.Command{
 
 		storage := proxy.NewRedisStorage(redis, "")
 		var h http.Handler = proxy.NewSnapshotter(l, snap, storage)
-		if len(proxyCfg.Rules) > 0 {
+		ruleCount := len(proxyCfg.Rules)
+		l.Info("toggling rules filter", "rules", ruleCount)
+		if ruleCount > 0 {
 			h = proxy.NewFilter(l, h, proxyCfg.Rules...)
 		}
 
@@ -100,6 +102,7 @@ var proxyCmd = &cobra.Command{
 func init() {
 	flags := proxyCmd.Flags()
 	flags.String(fileStorageDir, "/mnt/storage", "directory for file storage")
+	flags.String(proxyConfig, "", "configuration/rules file to load")
 	flags.StringP(proxyIndexIn, "i", "", "index to load")
 	flags.StringP(proxyIndexOut, "o", "", "index to write")
 	flags.String(proxySocket, "", "unix socket path to bind")

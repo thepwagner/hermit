@@ -50,7 +50,7 @@ var buildCmd = &cobra.Command{
 func init() {
 	flags := buildCmd.Flags()
 	flags.String(repoOwner, "thepwagner-org", "GitHub repository owner")
-	flags.StringP(repoName, "r", "debian-bullseye", "GitHub repository name")
-	flags.String(repoRef, "a823c79ef20c8ecab4b7f5d5b46fa6e7d4102f18", "GitHub repository ref")
+	flags.StringP(repoName, "r", "debian-bullseye", "GitHub	 repository name")
+	flags.String(repoRef, "5e3e9ff889d68562d535f102ee17630e2c7f5117", "GitHub repository ref")
 	rootCmd.AddCommand(buildCmd)
 }

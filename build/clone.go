@@ -62,7 +62,7 @@ func (g *GitCloner) Clone(ctx context.Context, owner, repo, commit string) (*Clo
 		if err != nil {
 			return nil, err
 		}
-		g.log.Info("opened existing repo", "src", f, "name", h.Name(), "head", h.Hash())
+		g.log.Info("opened existing repo", "src", f, "name", h.Name(), "head", h.Hash().String())
 		return g.loadCloneDetails(f, mnt.Path())
 	}
 
@@ -139,7 +139,7 @@ func (g *GitCloner) Clone(ctx context.Context, owner, repo, commit string) (*Clo
 		return nil, err
 	}
 
-	g.log.Info("opened updated repo", "src", f, "name", h.Name(), "head", h.Hash())
+	g.log.Info("opened updated repo", "src", f, "name", h.Name(), "head", h.Hash().String())
 	clone, err := g.loadCloneDetails(f, mnt.Path())
 	if err != nil {
 		return nil, err
@@ -159,9 +159,16 @@ func (g *GitCloner) loadCloneDetails(volumePath, mntPath string) (*Clone, error)
 	}
 	g.log.Info("loaded snapshot", "urls", len(snap.Data))
 
+	cfg, err := proxy.LoadConfigFile(filepath.Join(mntPath, ".hermit", "rules.yaml"))
+	if err != nil {
+		return nil, err
+	}
+	g.log.Info("loaded config", "urls", len(cfg.Rules))
+
 	return &Clone{
 		VolumePath: volumePath,
 		Snapshot:   snap,
+		Config:     cfg,
 	}, nil
 }
 
