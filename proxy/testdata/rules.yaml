@@ -1,0 +1,9 @@
+rules:
+- pattern: "auth.docker.io/.*"
+  action: NO_STORE
+- pattern: "registry.docker.io/v2/library/debian/.*"
+  action: ALLOW
+- pattern: "debian.mirror.rafal.ca/debian.*/InRelease"
+  action: REFRESH
+- pattern: "debian.mirror.rafal.ca/debian.*"
+  action: ALLOW

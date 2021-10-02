@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sync/atomic"
 	"testing"
 
@@ -12,6 +13,12 @@ import (
 	"github.com/thepwagner/hermit/log"
 	"github.com/thepwagner/hermit/proxy"
 )
+
+func newRule(t *testing.T, pattern string, action proxy.Action) *proxy.Rule {
+	rule, err := proxy.NewRule(pattern, action)
+	require.NoError(t, err)
+	return rule
+}
 
 func TestFilter(t *testing.T) {
 	l := log.New()
@@ -23,11 +30,11 @@ func TestFilter(t *testing.T) {
 
 	filter := proxy.NewFilter(l, snapshotter)
 	filter.Rules = append(filter.Rules,
-		proxy.MustNewRule(".*/reject", proxy.Reject),
-		proxy.MustNewRule(".*/locked", proxy.Locked),
-		proxy.MustNewRule(".*/allow", proxy.Allow),
-		proxy.MustNewRule(".*/refresh", proxy.Refresh),
-		proxy.MustNewRule(".*/nostore", proxy.RefreshNoStore),
+		newRule(t, ".*/reject", proxy.Reject),
+		newRule(t, ".*/locked", proxy.Locked),
+		newRule(t, ".*/allow", proxy.Allow),
+		newRule(t, ".*/refresh", proxy.Refresh),
+		newRule(t, ".*/nostore", proxy.RefreshNoStore),
 	)
 
 	filterRequest := func(t *testing.T, srvURL, srvPath string) *httptest.ResponseRecorder {
@@ -118,4 +125,17 @@ func TestFilter(t *testing.T) {
 			assert.True(t, snap.Empty())
 		}
 	})
+}
+
+func TestLoadRules(t *testing.T) {
+	f, err := os.Open("testdata/rules.yaml")
+	require.NoError(t, err)
+	defer f.Close()
+	rules, err := proxy.LoadRules(f)
+	require.NoError(t, err)
+	assert.Equal(t, 4, len(rules))
+
+	primeDirective := rules[0]
+	assert.True(t, primeDirective.MatchString("auth.docker.io/token"))
+	assert.Equal(t, proxy.RefreshNoStore, primeDirective.Action)
 }

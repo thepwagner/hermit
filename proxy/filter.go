@@ -3,10 +3,13 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"regexp"
+	"strings"
 
 	"github.com/go-logr/logr"
+	"gopkg.in/yaml.v3"
 )
 
 type Action int
@@ -26,7 +29,7 @@ const (
 
 type Rule struct {
 	pattern *regexp.Regexp
-	action  Action
+	Action  Action
 }
 
 func NewRule(pattern string, action Action) (*Rule, error) {
@@ -36,16 +39,63 @@ func NewRule(pattern string, action Action) (*Rule, error) {
 	}
 	return &Rule{
 		pattern: re,
-		action:  action,
+		Action:  action,
 	}, nil
 }
 
-func MustNewRule(pattern string, action Action) *Rule {
-	rule, err := NewRule(pattern, action)
-	if err != nil {
-		panic(err)
+func LoadRules(in io.Reader) ([]*Rule, error) {
+	var config map[string]interface{}
+	if err := yaml.NewDecoder(in).Decode(&config); err != nil {
+		return nil, err
 	}
-	return rule
+	rawRules, ok := config["rules"].([]interface{})
+	if !ok {
+		return nil, nil
+	}
+
+	rules := make([]*Rule, 0, len(rawRules))
+	for _, rawRule := range rawRules {
+		rule, ok := rawRule.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("invalid rule")
+		}
+		pattern, ok := rule["pattern"].(string)
+		if !ok {
+			return nil, fmt.Errorf("rule missing pattern")
+		}
+
+		rawAction, ok := rule["action"].(string)
+		if !ok {
+			return nil, fmt.Errorf("rule missing action")
+		}
+
+		var action Action
+		switch strings.ToUpper(rawAction) {
+		case "REJECT":
+			action = Reject
+		case "LOCKED":
+			action = Locked
+		case "ALLOW":
+			action = Allow
+		case "REFRESH":
+			action = Refresh
+		case "NO_STORE", "REFRESH_NO_STORE":
+			action = RefreshNoStore
+		default:
+			action = Reject
+		}
+
+		newRule, err := NewRule(pattern, action)
+		if err != nil {
+			return nil, err
+		}
+		rules = append(rules, newRule)
+	}
+	return rules, nil
+}
+
+func (r *Rule) MatchString(url string) bool {
+	return r.pattern.MatchString(url)
 }
 
 type Filter struct {
@@ -65,11 +115,11 @@ func (f *Filter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	url := fmt.Sprintf("%s%s", r.URL.Host, r.URL.Path)
 	f.log.Info("request", "url", url)
 	for _, rule := range f.Rules {
-		if !rule.pattern.MatchString(url) {
+		if !rule.MatchString(url) {
 			continue
 		}
 
-		switch rule.action {
+		switch rule.Action {
 		case Locked:
 			f.handler.ServeHTTP(w, newLockedRequest(r))
 		case Allow:

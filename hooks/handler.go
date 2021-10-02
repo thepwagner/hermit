@@ -1,7 +1,6 @@
 package hooks
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -12,6 +11,7 @@ import (
 	"github.com/google/go-github/v39/github"
 	"github.com/thepwagner/hermit/build"
 	"github.com/thepwagner/hermit/proxy"
+	"gopkg.in/yaml.v3"
 )
 
 type Handler struct {
@@ -101,18 +101,16 @@ func (h *Handler) pushSnapshot(ctx context.Context, e *BuildRequest, snap *proxy
 
 	var entries []*github.TreeEntry
 	for host, index := range snap.ByHost() {
-		var buf bytes.Buffer
-		enc := json.NewEncoder(&buf)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(index); err != nil {
+		b, err := yaml.Marshal(index)
+		if err != nil {
 			return err
 		}
 
 		entries = append(entries, &github.TreeEntry{
-			Path:    github.String(fmt.Sprintf(".hermit/network/%s.json", host)),
+			Path:    github.String(fmt.Sprintf(".hermit/network/%s.yaml", host)),
 			Mode:    github.String("100644"),
 			Type:    github.String("blob"),
-			Content: github.String(buf.String()),
+			Content: github.String(string(b)),
 		})
 	}
 
