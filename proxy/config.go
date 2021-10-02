@@ -2,16 +2,23 @@ package proxy
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
 	Rules []*Rule
+}
+
+type rawRule struct {
+	Pattern string `yaml:"pattern"`
+	Action  string `yaml:"action"`
+}
+
+type configRaw struct {
+	Rules []rawRule `yaml:"rules"`
 }
 
 func LoadConfigFile(fn string) (*Config, error) {
@@ -26,52 +33,35 @@ func LoadConfigFile(fn string) (*Config, error) {
 }
 
 func LoadConfig(in io.Reader) (*Config, error) {
-	var config map[string]interface{}
+	var config configRaw
 	if err := yaml.NewDecoder(in).Decode(&config); err != nil {
 		return nil, err
 	}
 
-	rawRules, ok := config["rules"].([]interface{})
-	if !ok {
-		return nil, nil
-	}
-	rules := make([]*Rule, 0, len(rawRules))
-	for _, rawRule := range rawRules {
-		rule, ok := rawRule.(map[string]interface{})
-		if !ok {
-			return nil, fmt.Errorf("invalid rule")
-		}
-		pattern, ok := rule["pattern"].(string)
-		if !ok {
-			return nil, fmt.Errorf("rule missing pattern")
-		}
-
-		rawAction, ok := rule["action"].(string)
-		if !ok {
-			return nil, fmt.Errorf("rule missing action")
-		}
-
-		var action Action
-		switch strings.ToUpper(rawAction) {
-		case "REJECT":
-			action = Reject
-		case "LOCKED":
-			action = Locked
-		case "ALLOW":
-			action = Allow
-		case "REFRESH":
-			action = Refresh
-		case "NO_STORE", "REFRESH_NO_STORE":
-			action = RefreshNoStore
-		default:
-			action = Reject
-		}
-
-		newRule, err := NewRule(pattern, action)
+	rules := make([]*Rule, 0, len(config.Rules))
+	for _, rawRule := range config.Rules {
+		newRule, err := NewRule(rawRule.Pattern, ParseAction(rawRule.Action))
 		if err != nil {
 			return nil, err
 		}
 		rules = append(rules, newRule)
 	}
 	return &Config{Rules: rules}, nil
+}
+
+func (c *Config) Save(fn string) error {
+	var config configRaw
+	for _, rule := range c.Rules {
+		config.Rules = append(config.Rules, rawRule{
+			Pattern: rule.pattern.String(),
+			Action:  rule.Action.String(),
+		})
+	}
+
+	f, err := os.Create(fn)
+	if err != nil {
+		return err
+	}
+
+	return yaml.NewEncoder(f).Encode(&config)
 }

@@ -5,24 +5,43 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strings"
 
 	"github.com/go-logr/logr"
 )
 
-type Action int
+type Action string
 
 const (
 	// Do not allow the request under any circumstances
-	Reject Action = iota
+	Reject Action = "REJECT"
 	// Only allow requests that have a captured response
-	Locked
+	Locked Action = "LOCKED"
 	// Allow requests matching the pattern, preferring cached responses
-	Allow
+	Allow Action = "ALLOW"
 	// Always refresh, even when in cache
-	Refresh
+	Refresh Action = "REFRESH"
 	// Always allow the request, and never cache the response. This should only be used for authentication tokens.
-	RefreshNoStore
+	RefreshNoStore Action = "NO_STORE"
 )
+
+func (a Action) String() string {
+	switch a {
+	case Reject, Locked, Allow, Refresh, RefreshNoStore:
+		return string(a)
+	default:
+		return "REJECT"
+	}
+}
+
+func ParseAction(s string) Action {
+	switch a := Action(strings.ToUpper(s)); a {
+	case Reject, Locked, Allow, Refresh, RefreshNoStore:
+		return a
+	default:
+		return Reject
+	}
+}
 
 type Rule struct {
 	pattern *regexp.Regexp

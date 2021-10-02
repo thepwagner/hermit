@@ -53,25 +53,17 @@ type BuildParams struct {
 }
 
 func (b *Builder) Build(ctx context.Context, params *BuildParams) (*proxy.Snapshot, error) {
-	src, snapshot, err := b.cloner.Clone(ctx, params.Owner, params.Repo, params.Ref)
+	clone, err := b.cloner.Clone(ctx, params.Owner, params.Repo, params.Ref)
 	if err != nil {
 		return nil, err
 	}
-	b.log.Info("source volume created", "src", src)
+	b.log.Info("source volume created", "src", clone.VolumePath)
 
 	buildTmp, err := ioutil.TempDir(b.runDir, "build-*")
 	if err != nil {
 		return nil, err
 	}
 	defer os.RemoveAll(buildTmp)
-
-	var proxyIndexIn string
-	if !snapshot.Empty() {
-		proxyIndexIn = filepath.Join(buildTmp, "proxy-in.json")
-		if err := snapshot.Save(proxyIndexIn); err != nil {
-			return nil, err
-		}
-	}
 
 	// Use outputDir instead of buildTmp, in case they are on different volumes
 	outputTmp, err := TempFile(b.outputDir, fmt.Sprintf("%s-*", params.Ref))
@@ -90,12 +82,12 @@ func (b *Builder) Build(ctx context.Context, params *BuildParams) (*proxy.Snapsh
 	}
 	b.log.Info("output volume created", "src", outputTmp)
 
-	prx, err := b.startProxy(ctx, buildTmp, proxyIndexIn)
+	prx, err := b.startProxy(ctx, buildTmp, clone)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := b.vm.BootVM(ctx, src, outputTmp, buildTmp); err != nil {
+	if err := b.vm.BootVM(ctx, clone.VolumePath, outputTmp, buildTmp); err != nil {
 		_ = prx.Process.Kill()
 		return nil, err
 	}
@@ -122,18 +114,31 @@ func (b *Builder) Build(ctx context.Context, params *BuildParams) (*proxy.Snapsh
 	return snap, nil
 }
 
-func (b *Builder) startProxy(ctx context.Context, buildTmp, indexIn string) (*exec.Cmd, error) {
+func (b *Builder) startProxy(ctx context.Context, buildTmp string, clone *Clone) (*exec.Cmd, error) {
 	vsp := fmt.Sprintf("%s_1024", vsockPath(buildTmp))
 	indexOut := filepath.Join(buildTmp, "proxy-out.json")
-	b.log.Info("starting proxy", "path", vsp, "indexIn", indexIn, "indexOut", indexOut)
 	args := []string{
 		"proxy",
 		"--socket", vsp,
 		"--index-out", indexOut,
 	}
-	if indexIn != "" {
+
+	if !clone.Snapshot.Empty() {
+		indexIn := filepath.Join(buildTmp, "proxy-in.json")
+		if err := clone.Snapshot.Save(indexIn); err != nil {
+			return nil, err
+		}
 		args = append(args, "--index-in", indexIn)
 	}
+	if clone.Config != nil {
+		config := filepath.Join(buildTmp, "config.yaml")
+		if err := clone.Config.Save(config); err != nil {
+			return nil, err
+		}
+		args = append(args, "--config", config)
+	}
+
+	b.log.Info("starting proxy", "args", args[1:])
 	cmd := exec.CommandContext(ctx, b.selfExe, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
