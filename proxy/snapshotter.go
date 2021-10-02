@@ -36,19 +36,27 @@ func NewSnapshotter(log logr.Logger, snap *Snapshot, storage Storage) *Snapshott
 
 func (s *Snapshotter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	key := fmt.Sprintf("%s%s", r.Host, r.URL.Path)
-	if stored := s.snap.Get(key); stored != nil {
-		if r.Method == http.MethodGet {
-			w.Header().Set("Content-Type", stored.ContentType)
-			b, err := s.storage.Load(stored)
-			if err != nil {
-				s.log.Error(err, "failed to get content")
-				return
+	if !(refreshRequest(r) || noStoreRequest(r)) {
+		if stored := s.snap.Get(key); stored != nil {
+			if r.Method == http.MethodGet {
+				w.Header().Set("Content-Type", stored.ContentType)
+				b, err := s.storage.Load(stored)
+				if err != nil {
+					s.log.Error(err, "failed to get content")
+					return
+				}
+				w.WriteHeader(stored.StatusCode)
+				w.Write(b)
 			}
-			w.WriteHeader(stored.StatusCode)
-			w.Write(b)
+			return
 		}
+	}
+
+	if lockedRequest(r) {
+		w.WriteHeader(http.StatusForbidden)
 		return
 	}
+
 	if err := s.captureResponse(w, r, key); err != nil {
 		s.log.Error(err, "capturing response")
 		http.Error(w, "", http.StatusInternalServerError)
@@ -73,7 +81,7 @@ func (s *Snapshotter) captureResponse(w http.ResponseWriter, r *http.Request, ke
 	default:
 		// passthrough
 	}
-	if r.Method == http.MethodGet {
+	if r.Method == http.MethodGet && !noStoreRequest(r) {
 		data := NewURLData(bufW)
 		s.snap.Set(key, data)
 

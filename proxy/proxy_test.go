@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,14 +15,18 @@ import (
 	"github.com/thepwagner/hermit/proxy"
 )
 
-var teapot = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("handler")
+type teapot struct {
+	count int64
+}
+
+func (t *teapot) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	atomic.AddInt64(&t.count, 1)
 	w.WriteHeader(http.StatusTeapot)
 	fmt.Fprintln(w, `{"status":["short","stout"]}`)
-})
+}
 
 func newTestProxy(t *testing.T, opts ...proxy.ProxyOpt) (*proxy.Proxy, *http.Client) {
-	p, err := proxy.NewProxy(teapot, append(opts, proxy.ProxyWithLog(log.New()))...)
+	p, err := proxy.NewProxy(&teapot{}, append(opts, proxy.ProxyWithLog(log.New()))...)
 	require.NoError(t, err)
 
 	certs := x509.NewCertPool()

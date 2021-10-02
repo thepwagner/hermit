@@ -21,7 +21,7 @@ func TestSnapshotter(t *testing.T) {
 	require.NoError(t, err)
 	snapshotter := proxy.NewSnapshotter(l, snap, storage)
 
-	srv := httptest.NewServer(teapot)
+	srv := httptest.NewServer(&teapot{})
 	defer srv.Close()
 
 	req, err := http.NewRequest("GET", srv.URL, nil)

@@ -86,6 +86,12 @@ func (s *Snapshot) Empty() bool {
 	return len(s.Data) == 0
 }
 
+func (s *Snapshot) Clear() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.Data = make(map[string]*URLData)
+}
+
 func (s *Snapshot) ByHost() map[string]map[string]*URLData {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
