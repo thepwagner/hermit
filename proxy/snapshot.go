@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -9,11 +8,13 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"gopkg.in/yaml.v2"
 )
 
 type Snapshot struct {
 	mu   sync.RWMutex
-	Data map[string]*URLData `json:"data"`
+	Data map[string]*URLData `yaml:"data"`
 }
 
 func NewSnapshot() *Snapshot {
@@ -41,7 +42,7 @@ func LoadSnapshot(index string) (*Snapshot, error) {
 			return nil, err
 		}
 		var data map[string]*URLData
-		if err := json.Unmarshal(b, &data); err != nil {
+		if err := yaml.Unmarshal(b, &data); err != nil {
 			return nil, err
 		}
 		s.Data = data
@@ -58,7 +59,7 @@ func LoadSnapshot(index string) (*Snapshot, error) {
 			return nil, err
 		}
 		var data map[string]*URLData
-		if err := json.Unmarshal(b, &data); err != nil {
+		if err := yaml.Unmarshal(b, &data); err != nil {
 			return nil, err
 		}
 		for k, v := range data {
@@ -111,7 +112,7 @@ func (s *Snapshot) ByHost() map[string]map[string]*URLData {
 func (s *Snapshot) Save(fn string) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	b, err := json.Marshal(s.Data)
+	b, err := yaml.Marshal(s.Data)
 	if err != nil {
 		return err
 	}

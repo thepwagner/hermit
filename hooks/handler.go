@@ -62,12 +62,15 @@ func (h *Handler) OnPush(ctx context.Context, e *BuildRequest) error {
 	})
 	if err != nil {
 		if err := h.buildCheckRunStatus(ctx, e, "completed", "failure"); err != nil {
-			h.log.Error(err, "failed to update  checkrun status")
+			h.log.Error(err, "failed to update checkrun status")
 		}
 		return err
 	}
-	// fmt.Println("captured snap", snap.Data)
+
 	if err := h.pushSnapshot(ctx, e, snap); err != nil {
+		if err := h.buildCheckRunStatus(ctx, e, "completed", "failure"); err != nil {
+			h.log.Error(err, "failed to update checkrun status")
+		}
 		return err
 	}
 
@@ -141,6 +144,11 @@ func (h *Handler) pushSnapshot(ctx context.Context, e *BuildRequest, snap *proxy
 			SHA: commit.SHA,
 		},
 	}, false)
+	if err != nil {
+		return err
+	}
 	h.log.Info("updated ref, push complete")
-	return err
+
+	// Still return an error, so the build is mark as failed
+	return fmt.Errorf("snapshot out of date")
 }

@@ -55,7 +55,7 @@ type BuildParams struct {
 func (b *Builder) Build(ctx context.Context, params *BuildParams) (*proxy.Snapshot, error) {
 	clone, err := b.cloner.Clone(ctx, params.Owner, params.Repo, params.Ref)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cloning repo: %w", err)
 	}
 	b.log.Info("source volume created", "src", clone.VolumePath)
 

@@ -79,7 +79,6 @@ func NewFilter(log logr.Logger, handler http.Handler, rules ...*Rule) *Filter {
 
 func (f *Filter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	url := fmt.Sprintf("%s%s", r.URL.Host, r.URL.Path)
-	f.log.Info("request", "url", url)
 	for _, rule := range f.Rules {
 		if !rule.MatchString(url) {
 			continue
@@ -106,7 +105,7 @@ func (f *Filter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// No rules match, go away
+	f.log.Info("no rules match, rejecting", "url", url)
 	w.WriteHeader(http.StatusForbidden)
 }
 
