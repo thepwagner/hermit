@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,6 +13,7 @@ import (
 
 const (
 	fileStorageDir = "fileStore"
+	proxyConfig    = "config"
 	proxyIndexIn   = "index-in"
 	proxyIndexOut  = "index-out"
 	proxySocket    = "socket"
@@ -25,6 +27,10 @@ var proxyCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		flags := cmd.Flags()
 		redis, err := redisClient(cmd)
+		if err != nil {
+			return err
+		}
+		cfgFile, err := flags.GetString(proxyConfig)
 		if err != nil {
 			return err
 		}
@@ -46,6 +52,10 @@ var proxyCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		proxyCfg, err := proxy.LoadConfigFile(cfgFile)
+		if err != nil {
+			return err
+		}
 		snap, err := proxy.LoadSnapshot(indexIn)
 		if err != nil {
 			return err
@@ -60,7 +70,6 @@ var proxyCmd = &cobra.Command{
 			}()
 		}
 
-		storage := proxy.NewRedisStorage(redis, "")
 		proxyOpts := []proxy.ProxyOpt{
 			proxy.ProxyWithLog(l),
 			proxy.ProxyWithPrivateKey(pk),
@@ -69,7 +78,13 @@ var proxyCmd = &cobra.Command{
 			proxyOpts = append(proxyOpts, proxy.ProxyWithSocketPath(socketPath))
 		}
 
-		p, err := proxy.NewProxy(proxy.NewSnapshotter(l, snap, storage), proxyOpts...)
+		storage := proxy.NewRedisStorage(redis, "")
+		var h http.Handler = proxy.NewSnapshotter(l, snap, storage)
+		if len(proxyCfg.Rules) > 0 {
+			h = proxy.NewFilter(l, h, proxyCfg.Rules...)
+		}
+
+		p, err := proxy.NewProxy(h, proxyOpts...)
 		if err != nil {
 			return err
 		}

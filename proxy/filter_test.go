@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"sync/atomic"
 	"testing"
 
@@ -125,17 +124,4 @@ func TestFilter(t *testing.T) {
 			assert.True(t, snap.Empty())
 		}
 	})
-}
-
-func TestLoadRules(t *testing.T) {
-	f, err := os.Open("testdata/rules.yaml")
-	require.NoError(t, err)
-	defer f.Close()
-	rules, err := proxy.LoadRules(f)
-	require.NoError(t, err)
-	assert.Equal(t, 4, len(rules))
-
-	primeDirective := rules[0]
-	assert.True(t, primeDirective.MatchString("auth.docker.io/token"))
-	assert.Equal(t, proxy.RefreshNoStore, primeDirective.Action)
 }
