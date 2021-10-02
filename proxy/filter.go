@@ -101,12 +101,14 @@ func (f *Filter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		default:
 			f.log.Info("reject", "pattern", rule.pattern.String(), "url", url)
 			w.WriteHeader(http.StatusForbidden)
+			fmt.Fprint(w, "Forbidden")
 		}
 		return
 	}
 
 	f.log.Info("no rules match, rejecting", "url", url)
 	w.WriteHeader(http.StatusForbidden)
+	fmt.Fprint(w, "Forbidden")
 }
 
 type ctxKey string

@@ -1,8 +1,11 @@
 package build
 
 import (
+	"archive/tar"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -86,22 +89,46 @@ func (b *Builder) Build(ctx context.Context, params *BuildParams) (*proxy.Snapsh
 	if err != nil {
 		return nil, err
 	}
-
 	if err := b.vm.BootVM(ctx, clone.VolumePath, outputTmp, buildTmp); err != nil {
 		_ = prx.Process.Kill()
 		return nil, err
 	}
-
-	// Rename to the final name, and avoid the deferred deletion.
-	if err := os.Rename(outputTmp, filepath.Join(b.outputDir, fmt.Sprintf("%s.img", params.Ref))); err != nil {
-		_ = prx.Process.Kill()
-		return nil, err
-	}
-
 	if err := prx.Process.Signal(syscall.SIGTERM); err != nil {
 		_ = prx.Process.Kill()
 		return nil, err
 	}
+
+	outputMnt, err := MountVolume(ctx, outputTmp, "")
+	if err != nil {
+		return nil, err
+	}
+	defer outputMnt.Close(ctx)
+
+	// TODO: actually use image - push to registry?
+	outputTar, err := os.Open(filepath.Join(outputMnt.Path(), "image.tar"))
+	if err != nil {
+		return nil, err
+	}
+	defer outputTar.Close()
+	empty := true
+	for tarReader := tar.NewReader(outputTar); ; {
+		if _, err := tarReader.Next(); errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			return nil, fmt.Errorf("reading tar: %w", err)
+		}
+		empty = false
+		break
+	}
+	if empty {
+		return nil, fmt.Errorf("no output generated")
+	}
+
+	// Rename to the final name, and avoid the deferred deletion.
+	if err := os.Rename(outputTmp, filepath.Join(b.outputDir, fmt.Sprintf("%s.img", params.Ref))); err != nil {
+		return nil, err
+	}
+
 	if err := prx.Wait(); err != nil {
 		return nil, err
 	}
