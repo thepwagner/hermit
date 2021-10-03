@@ -18,6 +18,7 @@ func (f *Firecracker) bootVM(ctx context.Context, buildTmp, vmRoot, inVolume, ou
 	vsockCID := atomic.AddUint32(&f.vsockCID, 1)
 	cfg := firecracker.Config{
 		SocketPath:      fcSockPath,
+		LogLevel:        "Warning",
 		KernelImagePath: f.kernel,
 		KernelArgs:      "console=ttyS0 noapic reboot=k panic=1 pci=off random.trust_cpu=on nomodules quiet",
 		Drives: firecracker.NewDrivesBuilder(vmRoot).

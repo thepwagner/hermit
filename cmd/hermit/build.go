@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 	"github.com/thepwagner/hermit/build"
 	"github.com/thepwagner/hermit/log"
@@ -38,12 +40,23 @@ var buildCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		_, err = builder.Build(cmd.Context(), &build.BuildParams{
+		result, err := builder.Build(cmd.Context(), &build.BuildParams{
 			Owner: owner,
 			Repo:  repo,
 			Ref:   ref,
 		})
-		return err
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("---Build Result---")
+		if result.Summary != "" {
+			fmt.Println(result.Summary)
+		}
+		if result.Output != "" {
+			fmt.Println(result.Output)
+		}
+		return nil
 	},
 }
 

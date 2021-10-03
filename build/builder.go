@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/go-logr/logr"
@@ -108,7 +109,17 @@ func (b *Builder) Build(ctx context.Context, params *BuildParams) (*Result, erro
 		res.Summary = "could not boot VM"
 		return res, err
 	}
-	res.Output = fmt.Sprintf("```\n%s\n```\n", vmOutput.String())
+
+	// TODO: silencing logs in the VM would be better than trimming the output
+	vmLogs := vmOutput.String()
+	if buildStart := strings.Index(vmLogs, "#1 [internal] load build definition from Dockerfile"); buildStart > 0 {
+		vmLogs = vmLogs[buildStart:]
+	}
+	if rebootMsg := strings.LastIndex(vmLogs, "reboot: Restarting system"); rebootMsg > 0 {
+		vmLogs = vmLogs[:strings.LastIndex(vmLogs, "[ ")]
+	}
+
+	res.Output = fmt.Sprintf("```\n%s\n```\n", vmLogs)
 
 	if err := prx.Process.Signal(syscall.SIGTERM); err != nil {
 		_ = prx.Process.Kill()
