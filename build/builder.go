@@ -50,10 +50,11 @@ func NewBuilder(log logr.Logger, cloner *GitCloner, vm *Firecracker, outputDir s
 	return b, nil
 }
 
-type BuildParams struct {
+type Params struct {
 	Owner        string
 	Repo         string
 	Ref          string
+	Hermetic     bool
 	OutputSizeMB int
 }
 
@@ -63,7 +64,7 @@ type Result struct {
 	Output   string
 }
 
-func (b *Builder) Build(ctx context.Context, params *BuildParams) (*Result, error) {
+func (b *Builder) Build(ctx context.Context, params *Params) (*Result, error) {
 	res := &Result{}
 	clone, err := b.cloner.Clone(ctx, params.Owner, params.Repo, params.Ref)
 	if err != nil {
@@ -98,7 +99,7 @@ func (b *Builder) Build(ctx context.Context, params *BuildParams) (*Result, erro
 	}
 	b.log.Info("output volume created", "src", outputTmp)
 
-	prx, err := b.startProxy(ctx, buildTmp, clone)
+	prx, err := b.startProxy(ctx, buildTmp, clone, params.Hermetic)
 	if err != nil {
 		res.Summary = "could not start proxy"
 		return res, err
@@ -158,7 +159,7 @@ func (b *Builder) Build(ctx context.Context, params *BuildParams) (*Result, erro
 	return res, nil
 }
 
-func (b *Builder) startProxy(ctx context.Context, buildTmp string, clone *Clone) (*exec.Cmd, error) {
+func (b *Builder) startProxy(ctx context.Context, buildTmp string, clone *Clone, hermetic bool) (*exec.Cmd, error) {
 	vsp := fmt.Sprintf("%s_1024", vsockPath(buildTmp))
 	indexOut := filepath.Join(buildTmp, "proxy-out.json")
 	args := []string{
@@ -174,9 +175,19 @@ func (b *Builder) startProxy(ctx context.Context, buildTmp string, clone *Clone)
 		}
 		args = append(args, "--index-in", indexIn)
 	}
-	if clone.Config != nil {
+
+	var proxyCfg *proxy.Config
+	if hermetic {
+		proxyCfg = &hermeticCfg
+		b.log.Info("proxy using hermetic config")
+	} else if clone.Config != nil {
+		proxyCfg = clone.Config
+		b.log.Info("proxy using repository config")
+	}
+
+	if proxyCfg != nil {
 		config := filepath.Join(buildTmp, "config.yaml")
-		if err := clone.Config.Save(config); err != nil {
+		if err := proxyCfg.Save(config); err != nil {
 			return nil, err
 		}
 		args = append(args, "--config", config)
@@ -213,4 +224,14 @@ func (b *Builder) checkOutput(ctx context.Context, outputTmp string) (bool, erro
 
 		return true, nil
 	}
+}
+
+var hermeticCfg proxy.Config
+
+func init() {
+	cageMatch, err := proxy.NewRule(".*", proxy.Locked)
+	if err != nil {
+		panic(err)
+	}
+	hermeticCfg.Rules = append(hermeticCfg.Rules, cageMatch)
 }

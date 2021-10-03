@@ -47,7 +47,7 @@ var proxyCmd = &cobra.Command{
 			return err
 		}
 
-		l := log.New()
+		l := log.New().WithName("proxy")
 		pk, err := proxy.PrivateKey()
 		if err != nil {
 			return err

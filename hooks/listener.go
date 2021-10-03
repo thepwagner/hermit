@@ -14,15 +14,32 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type Handler struct {
+// buildRequestQueue is a redis key for the build request queue
+const buildRequestQueue = "github-hook-build"
+
+// BuildRequest are parameters to perform a build. What is sent on the build queue.
+type BuildRequest struct {
+	// TODO: protobuf? your one job is to be stable on the wire
+
+	RepoOwner       string `json:"owner"`
+	RepoName        string `json:"name"`
+	Ref             string `json:"ref"`
+	SHA             string `json:"sha"`
+	Tree            string `json:"tree"`
+	BuildCheckRunID int64  `json:"buildCheckRunID"`
+	DefaultBranch   bool   `json:"defaultBranch"`
+}
+
+// Listener consumes build requests from a Redis queue and performs builds.
+type Listener struct {
 	log     logr.Logger
 	redis   *redis.Client
 	gh      *github.Client
 	builder *build.Builder
 }
 
-func NewHandler(log logr.Logger, redisC *redis.Client, gh *github.Client, builder *build.Builder) *Handler {
-	return &Handler{
+func NewListener(log logr.Logger, redisC *redis.Client, gh *github.Client, builder *build.Builder) *Listener {
+	return &Listener{
 		log:     log,
 		redis:   redisC,
 		gh:      gh,
@@ -30,67 +47,79 @@ func NewHandler(log logr.Logger, redisC *redis.Client, gh *github.Client, builde
 	}
 }
 
-func (h *Handler) PushListener(ctx context.Context) {
+func (l *Listener) BuildListener(ctx context.Context) {
 	for {
-		data, err := h.redis.BLPop(ctx, 0, buildRequestQueue).Result()
+		data, err := l.redis.BLPop(ctx, 0, buildRequestQueue).Result()
 		if err != nil {
-			h.log.Error(err, "failed to get build request")
+			l.log.Error(err, "failed to get build request")
 			continue
 		}
 
 		var req BuildRequest
 		if err := json.Unmarshal([]byte(data[1]), &req); err != nil {
-			h.log.Error(err, "failed to unmarshal build request")
+			l.log.Error(err, "failed to unmarshal build request")
 			continue
 		}
 
-		if err := h.OnPush(ctx, &req); err != nil {
-			h.log.Error(err, "failed to process push")
+		if err := l.BuildRequested(ctx, &req); err != nil {
+			l.log.Error(err, "failed to process push")
 		}
 	}
 }
 
-func (h *Handler) OnPush(ctx context.Context, e *BuildRequest) error {
-	h.log.Info("building push", "repo", fmt.Sprintf("%s/%s", e.RepoOwner, e.RepoName), "sha", e.SHA)
-	if err := h.buildCheckRunStatus(ctx, e, "in_progress", "", &build.Result{}); err != nil {
+func (l *Listener) BuildRequested(ctx context.Context, e *BuildRequest) error {
+	l.log.Info("build requested", "repo", fmt.Sprintf("%s/%s", e.RepoOwner, e.RepoName), "sha", e.SHA)
+	// Delegate everything: this function should be focused on the CheckRun result
+
+	if err := l.buildCheckRunInProgress(ctx, e); err != nil {
 		return err
 	}
-	result, err := h.builder.Build(ctx, &build.BuildParams{
-		Owner: e.RepoOwner,
-		Repo:  e.RepoName,
-		Ref:   e.SHA,
+	result, err := l.builder.Build(ctx, &build.Params{
+		Owner:    e.RepoOwner,
+		Repo:     e.RepoName,
+		Ref:      e.SHA,
+		Hermetic: e.DefaultBranch,
 	})
 	if err != nil {
-		if err := h.buildCheckRunStatus(ctx, e, "completed", "failure", result); err != nil {
-			h.log.Error(err, "failed to update checkrun status")
+		if err := l.buildCheckRunComplete(ctx, e, "failure", result); err != nil {
+			// Log, but the build error is more interesting to return
+			l.log.Error(err, "failed to update checkrun status")
 		}
 		return err
 	}
 
-	if err := h.pushSnapshot(ctx, e, result.Snapshot); err != nil {
+	if err := l.pushSnapshot(ctx, e, result.Snapshot); err != nil {
 		result.Summary = "snapshot error"
-		if err := h.buildCheckRunStatus(ctx, e, "completed", "failure", result); err != nil {
-			h.log.Error(err, "failed to update checkrun status")
+		if err := l.buildCheckRunComplete(ctx, e, "failure", result); err != nil {
+			l.log.Error(err, "failed to update checkrun status")
 		}
 		return err
 	}
 
-	if err := h.buildCheckRunStatus(ctx, e, "completed", "success", result); err != nil {
+	if err := l.buildCheckRunComplete(ctx, e, "success", result); err != nil {
 		return err
 	}
 
 	// TODO: run your scan sir
 
 	if e.DefaultBranch {
-		h.log.Info("push to default branch, publishing")
+		l.log.Info("TODO: push to default branch, publishing")
 	}
 	return nil
 }
 
-func (h *Handler) buildCheckRunStatus(ctx context.Context, e *BuildRequest, status, conclusion string, res *build.Result) error {
+func (h *Listener) buildCheckRunInProgress(ctx context.Context, e *BuildRequest) error {
+	_, _, err := h.gh.Checks.UpdateCheckRun(ctx, e.RepoOwner, e.RepoName, e.BuildCheckRunID, github.UpdateCheckRunOptions{
+		Name:   buildCheckRunName,
+		Status: github.String("in_progress"),
+	})
+	return err
+}
+
+func (h *Listener) buildCheckRunComplete(ctx context.Context, e *BuildRequest, conclusion string, res *build.Result) error {
 	opts := github.UpdateCheckRunOptions{
 		Name:   buildCheckRunName,
-		Status: &status,
+		Status: github.String("completed"),
 	}
 	if conclusion != "" {
 		opts.Conclusion = &conclusion
@@ -107,7 +136,7 @@ func (h *Handler) buildCheckRunStatus(ctx context.Context, e *BuildRequest, stat
 	return err
 }
 
-func (h *Handler) pushSnapshot(ctx context.Context, e *BuildRequest, snap *proxy.Snapshot) error {
+func (h *Listener) pushSnapshot(ctx context.Context, e *BuildRequest, snap *proxy.Snapshot) error {
 	h.gh.Git.GetTree(ctx, e.RepoOwner, e.RepoName, e.Tree, true)
 
 	var entries []*github.TreeEntry

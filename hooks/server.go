@@ -10,6 +10,7 @@ import (
 	"github.com/google/go-github/v39/github"
 )
 
+// Server listens to GitHub webhooks and dispatches work requests to the redis queue.
 type Server struct {
 	log           logr.Logger
 	redis         *redis.Client
@@ -49,20 +50,24 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) OnPush(r *http.Request, payload []byte) error {
-	s.log.Info("received push event event", len(payload))
+	// Parse and extract features:
 	evt, err := github.ParseWebHook("push", payload)
 	if err != nil {
 		return err
 	}
 	pushEvt := evt.(*github.PushEvent)
-
 	repo := pushEvt.GetRepo()
 	repoOwner := repo.GetOwner().GetLogin()
 	repoName := repo.GetName()
+	ref := pushEvt.GetRef()
 	sha := pushEvt.GetAfter()
+
+	// Create a queued checkrun for anything that will be built:
 	if sha == "0000000000000000000000000000000000000000" {
+		s.log.Info("ignoring delete event", "owner", repoOwner, "repo", repoName, "ref", ref)
 		return nil
 	}
+	s.log.Info("received push event event", "owner", repoOwner, "repo", repoName, "sha", sha, "ref", ref)
 	buildCheckRun, _, err := s.gh.Checks.CreateCheckRun(r.Context(), repoOwner, repoName, github.CreateCheckRunOptions{
 		Name:    buildCheckRunName,
 		Status:  github.String("queued"),
@@ -77,7 +82,7 @@ func (s *Server) OnPush(r *http.Request, payload []byte) error {
 		RepoName:        repoName,
 		SHA:             sha,
 		Tree:            pushEvt.GetHeadCommit().GetTreeID(),
-		Ref:             pushEvt.GetRef(),
+		Ref:             ref,
 		BuildCheckRunID: buildCheckRun.GetID(),
 		DefaultBranch:   pushEvt.GetRef() == fmt.Sprintf("refs/heads/%s", repo.GetDefaultBranch()),
 	})
@@ -85,16 +90,4 @@ func (s *Server) OnPush(r *http.Request, payload []byte) error {
 		return err
 	}
 	return s.redis.RPush(r.Context(), buildRequestQueue, b).Err()
-}
-
-const buildRequestQueue = "github-hook-build"
-
-type BuildRequest struct {
-	RepoOwner       string
-	RepoName        string
-	Ref             string
-	SHA             string
-	Tree            string
-	BuildCheckRunID int64
-	DefaultBranch   bool
 }

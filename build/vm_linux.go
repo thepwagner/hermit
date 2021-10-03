@@ -11,6 +11,7 @@ import (
 
 	"github.com/firecracker-microvm/firecracker-go-sdk"
 	"github.com/firecracker-microvm/firecracker-go-sdk/client/models"
+	"github.com/sirupsen/logrus"
 )
 
 func (f *Firecracker) bootVM(ctx context.Context, buildTmp, vmRoot, inVolume, outVolume string, out io.Writer) error {
@@ -46,7 +47,9 @@ func (f *Firecracker) bootVM(ctx context.Context, buildTmp, vmRoot, inVolume, ou
 		WithStderr(out).
 		Build(ctx)
 
-	m, err := firecracker.NewMachine(ctx, cfg, firecracker.WithProcessRunner(cmd))
+	fcLog := logrus.New()
+	fcLog.SetLevel(logrus.WarnLevel)
+	m, err := firecracker.NewMachine(ctx, cfg, firecracker.WithProcessRunner(cmd), firecracker.WithLogger(logrus.NewEntry(fcLog)))
 	if err != nil {
 		return fmt.Errorf("failed to create firecracker machine: %w", err)
 	}

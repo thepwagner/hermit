@@ -20,7 +20,7 @@ const (
 var buildCmd = &cobra.Command{
 	Use: "build",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		l := log.New()
+		l := log.New().WithName("build")
 		flags := cmd.Flags()
 		owner, err := flags.GetString(repoOwner)
 		if err != nil {
@@ -40,7 +40,7 @@ var buildCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		result, err := builder.Build(cmd.Context(), &build.BuildParams{
+		result, err := builder.Build(cmd.Context(), &build.Params{
 			Owner: owner,
 			Repo:  repo,
 			Ref:   ref,

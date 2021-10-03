@@ -83,23 +83,19 @@ func (f *Filter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if !rule.MatchString(url) {
 			continue
 		}
+		f.log.Info("filter pattern matched", "pattern", rule.pattern.String(), "url", url, "action", rule.Action)
 		switch rule.Action {
 		case Locked:
-			f.log.Info("locked", "pattern", rule.pattern.String(), "url", url)
 			f.handler.ServeHTTP(w, newLockedRequest(r))
 		case Allow:
-			f.log.Info("allow", "pattern", rule.pattern.String(), "url", url)
 			f.handler.ServeHTTP(w, r)
 		case Refresh:
-			f.log.Info("refresh", "pattern", rule.pattern.String(), "url", url)
 			f.handler.ServeHTTP(w, newRefreshRequest(r))
 		case RefreshNoStore:
-			f.log.Info("no store", "pattern", rule.pattern.String(), "url", url)
 			f.handler.ServeHTTP(w, newNoStoreRequest(r))
 		case Reject:
 			fallthrough
 		default:
-			f.log.Info("reject", "pattern", rule.pattern.String(), "url", url)
 			w.WriteHeader(http.StatusForbidden)
 			fmt.Fprint(w, "Forbidden")
 		}

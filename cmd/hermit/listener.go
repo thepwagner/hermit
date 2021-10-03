@@ -24,8 +24,8 @@ var listenerCmd = &cobra.Command{
 			return err
 		}
 
-		h := hooks.NewHandler(l, redis, gh, builder)
-		h.PushListener(cmd.Context())
+		h := hooks.NewListener(l, redis, gh, builder)
+		h.BuildListener(cmd.Context())
 		return nil
 	},
 }
