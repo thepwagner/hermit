@@ -15,14 +15,16 @@ type Server struct {
 	log           logr.Logger
 	redis         *redis.Client
 	gh            *github.Client
+	botID         int64
 	webhookSecret []byte
 }
 
-func NewServer(log logr.Logger, redis *redis.Client, gh *github.Client, webhookSecret []byte) *Server {
+func NewServer(log logr.Logger, redis *redis.Client, gh *github.Client, botID int64, webhookSecret []byte) *Server {
 	return &Server{
 		log:           log,
 		redis:         redis,
 		gh:            gh,
+		botID:         botID,
 		webhookSecret: webhookSecret,
 	}
 }
@@ -67,7 +69,7 @@ func (s *Server) OnPush(r *http.Request, payload []byte) error {
 		s.log.Info("ignoring delete event", "owner", repoOwner, "repo", repoName, "ref", ref)
 		return nil
 	}
-	s.log.Info("received push event event", "owner", repoOwner, "repo", repoName, "sha", sha, "ref", ref)
+	s.log.Info("received push event", "owner", repoOwner, "repo", repoName, "sha", sha, "ref", ref)
 	buildCheckRun, _, err := s.gh.Checks.CreateCheckRun(r.Context(), repoOwner, repoName, github.CreateCheckRunOptions{
 		Name:    buildCheckRunName,
 		Status:  github.String("queued"),
@@ -84,7 +86,9 @@ func (s *Server) OnPush(r *http.Request, payload []byte) error {
 		Tree:            pushEvt.GetHeadCommit().GetTreeID(),
 		Ref:             ref,
 		BuildCheckRunID: buildCheckRun.GetID(),
-		DefaultBranch:   pushEvt.GetRef() == fmt.Sprintf("refs/heads/%s", repo.GetDefaultBranch()),
+
+		DefaultBranch: pushEvt.GetRef() == fmt.Sprintf("refs/heads/%s", repo.GetDefaultBranch()),
+		FromHermit:    pushEvt.GetSender().GetID() == s.botID,
 	})
 	if err != nil {
 		return err

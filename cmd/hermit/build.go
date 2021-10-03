@@ -64,18 +64,17 @@ var buildCmd = &cobra.Command{
 			Ref:      sha,
 			Hermetic: defaultBranch,
 		})
-		if err != nil {
-			return err
-		}
 
-		fmt.Println("---Build Result---")
-		if result.Summary != "" {
-			fmt.Println(result.Summary)
+		if result != nil {
+			fmt.Println("---Build Result---")
+			if result.Summary != "" {
+				fmt.Println(result.Summary)
+			}
+			if result.Output != "" {
+				fmt.Println(result.Output)
+			}
 		}
-		if result.Output != "" {
-			fmt.Println(result.Output)
-		}
-		return nil
+		return err
 	},
 }
 

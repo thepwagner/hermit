@@ -28,6 +28,7 @@ type BuildRequest struct {
 	Tree            string `json:"tree"`
 	BuildCheckRunID int64  `json:"buildCheckRunID"`
 	DefaultBranch   bool   `json:"defaultBranch"`
+	FromHermit      bool   `json:"fromHermit"`
 }
 
 // Listener consumes build requests from a Redis queue and performs builds.
@@ -78,7 +79,7 @@ func (l *Listener) BuildRequested(ctx context.Context, e *BuildRequest) error {
 		Owner:    e.RepoOwner,
 		Repo:     e.RepoName,
 		Ref:      e.SHA,
-		Hermetic: e.DefaultBranch,
+		Hermetic: e.DefaultBranch || e.FromHermit,
 	})
 	if err != nil {
 		if err := l.buildCheckRunComplete(ctx, e, "failure", result); err != nil {

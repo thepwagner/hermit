@@ -28,7 +28,11 @@ var hooksCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		hooks := hooks.NewServer(log, redis, gh, token)
+		botID, err := cmd.Flags().GetInt64(githubBotIDFlag)
+		if err != nil {
+			return err
+		}
+		hooks := hooks.NewServer(log, redis, gh, botID, token)
 		srv := &http.Server{
 			Addr:    "127.0.0.1:8080",
 			Handler: hooks,

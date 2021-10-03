@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"net/http"
@@ -82,6 +83,10 @@ func (s *Snapshotter) captureResponse(w http.ResponseWriter, r *http.Request, ke
 		// passthrough
 	}
 	if r.Method == http.MethodGet && !noStoreRequest(r) && bufW.Code != http.StatusNotModified {
+		if err := decompressBody(bufW); err != nil {
+			return fmt.Errorf("reading gzip: %w", err)
+		}
+
 		data := NewURLData(bufW)
 		s.snap.Set(key, data)
 
@@ -97,6 +102,29 @@ func (s *Snapshotter) captureResponse(w http.ResponseWriter, r *http.Request, ke
 	}
 	w.WriteHeader(bufW.Code)
 	w.Write(bufW.Body.Bytes())
+	return nil
+}
+
+func decompressBody(bufW *httptest.ResponseRecorder) error {
+	if bufW.HeaderMap.Get("Content-Encoding") != "gzip" {
+		return nil
+	}
+
+	gzr, err := gzip.NewReader(bufW.Body)
+	if err != nil {
+		return err
+	}
+	var uncompressed bytes.Buffer
+	if _, err := io.Copy(&uncompressed, gzr); err != nil {
+		return err
+	}
+	if err := gzr.Close(); err != nil {
+		return err
+	}
+
+	bufW.HeaderMap.Del("Content-Encoding")
+	bufW.HeaderMap.Del("Content-Length")
+	bufW.Body = &uncompressed
 	return nil
 }
 

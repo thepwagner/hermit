@@ -13,9 +13,10 @@ import (
 
 const (
 	redisUrlFlag                = "redis"
-	gitHubAppIDFlag             = "github-app-id"
+	githubAppIDFlag             = "github-app-id"
 	githubInstallationIDFlag    = "github-installation-id"
 	githubAppPrivateKeyFileFlag = "github-private-key-file"
+	githubBotIDFlag             = "github-bot-id"
 )
 
 var rootCmd = &cobra.Command{
@@ -26,8 +27,9 @@ func init() {
 	pflags := rootCmd.PersistentFlags()
 
 	pflags.String(redisUrlFlag, "localhost:6379", "redis url")
-	pflags.Int64(gitHubAppIDFlag, 141544, "GitHub app ID")
+	pflags.Int64(githubAppIDFlag, 141544, "GitHub app ID")
 	pflags.Int64(githubInstallationIDFlag, 19814209, "GitHub installation ID")
+	pflags.Int64(githubBotIDFlag, 91640726, "GitHub bot ID")
 	pflags.String(githubAppPrivateKeyFileFlag, "build-hermit.2021-09-29.private-key.pem", "GitHub app private key file")
 }
 
@@ -41,7 +43,7 @@ func redisClient(cmd *cobra.Command) (*redis.Client, error) {
 
 func gitHubClient(cmd *cobra.Command) (*ghinstallation.Transport, *github.Client, error) {
 	flags := cmd.Flags()
-	appID, err := flags.GetInt64(gitHubAppIDFlag)
+	appID, err := flags.GetInt64(githubAppIDFlag)
 	if err != nil {
 		return nil, nil, err
 	}
