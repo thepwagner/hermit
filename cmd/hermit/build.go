@@ -36,14 +36,33 @@ var buildCmd = &cobra.Command{
 		}
 		l.Info("building", "owner", owner, "repo", repo, "ref", ref)
 
+		// Resolve ref to SHA
+		ctx := cmd.Context()
+		_, gh, err := gitHubClient(cmd)
+		if err != nil {
+			return err
+		}
+		ghRepo, _, err := gh.Repositories.Get(ctx, owner, repo)
+		if err != nil {
+			return err
+		}
+		branch, _, err := gh.Repositories.GetBranch(ctx, owner, repo, ref, true)
+		if err != nil {
+			return err
+		}
+		defaultBranch := ghRepo.GetDefaultBranch() == branch.GetName()
+		sha := branch.GetCommit().GetSHA()
+		l.Info("resolved ref", "owner", owner, "repo", repo, "ref", ref, "sha", sha, "default", defaultBranch)
+
 		builder, err := newBuilder(cmd, l)
 		if err != nil {
 			return err
 		}
-		result, err := builder.Build(cmd.Context(), &build.Params{
-			Owner: owner,
-			Repo:  repo,
-			Ref:   ref,
+		result, err := builder.Build(ctx, &build.Params{
+			Owner:    owner,
+			Repo:     repo,
+			Ref:      sha,
+			Hermetic: defaultBranch,
 		})
 		if err != nil {
 			return err
@@ -64,6 +83,6 @@ func init() {
 	flags := buildCmd.Flags()
 	flags.String(repoOwner, "thepwagner-org", "GitHub repository owner")
 	flags.StringP(repoName, "r", "debian-bullseye", "GitHub	 repository name")
-	flags.String(repoRef, "5e3e9ff889d68562d535f102ee17630e2c7f5117", "GitHub repository ref")
+	flags.String(repoRef, "main", "GitHub repository ref")
 	rootCmd.AddCommand(buildCmd)
 }
