@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/containerd/containerd"
 	"github.com/spf13/cobra"
 	"github.com/thepwagner/hermit/build"
 	"github.com/thepwagner/hermit/log"
@@ -34,6 +36,7 @@ var buildCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		pushSecret := os.Getenv("REGISTRY_PUSH_PASSWORD")
 		l.Info("building", "owner", owner, "repo", repo, "ref", ref)
 
 		// Resolve ref to SHA
@@ -54,16 +57,23 @@ var buildCmd = &cobra.Command{
 		sha := branch.GetCommit().GetSHA()
 		l.Info("resolved ref", "owner", owner, "repo", repo, "ref", ref, "sha", sha, "default", defaultBranch)
 
+		ctr, err := containerd.New("/run/containerd/containerd.sock", containerd.WithDefaultNamespace("hermit"))
+		if err != nil {
+			return err
+		}
+		pusher := build.NewPusher(ctx, l, ctr, pushSecret, outputDir)
+
 		builder, err := newBuilder(cmd, l)
 		if err != nil {
 			return err
 		}
-		result, err := builder.Build(ctx, &build.Params{
+		params := &build.Params{
 			Owner:    owner,
 			Repo:     repo,
 			Ref:      sha,
 			Hermetic: defaultBranch,
-		})
+		}
+		result, err := builder.Build(ctx, params)
 
 		if result != nil {
 			fmt.Println("---Build Result---")
@@ -74,7 +84,16 @@ var buildCmd = &cobra.Command{
 				fmt.Println(result.Output)
 			}
 		}
-		return err
+		if err != nil {
+			return err
+		}
+
+		if defaultBranch {
+			if err := pusher.Push(ctx, params); err != nil {
+				return err
+			}
+		}
+		return nil
 	},
 }
 

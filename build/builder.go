@@ -137,7 +137,12 @@ func (b *Builder) Build(ctx context.Context, params *Params) (*Result, error) {
 	}
 
 	// Rename to the final name, and avoid the deferred deletion.
-	if err := os.Rename(outputTmp, filepath.Join(b.outputDir, fmt.Sprintf("%s.img", params.Ref))); err != nil {
+	outputFile := buildOutput(b.outputDir, params)
+	if err := os.MkdirAll(filepath.Dir(outputFile), 0750); err != nil {
+		res.Summary = "build cleanup error"
+		return res, err
+	}
+	if err := os.Rename(outputTmp, outputFile); err != nil {
 		res.Summary = "build cleanup error"
 		return res, err
 	}
@@ -157,6 +162,10 @@ func (b *Builder) Build(ctx context.Context, params *Params) (*Result, error) {
 	res.Snapshot = snap
 	res.Summary = "build succesful"
 	return res, nil
+}
+
+func buildOutput(outputDir string, p *Params) string {
+	return filepath.Join(outputDir, p.Owner, p.Repo, fmt.Sprintf("%s.img", p.Ref))
 }
 
 func (b *Builder) startProxy(ctx context.Context, buildTmp string, clone *Clone, hermetic bool) (*exec.Cmd, error) {

@@ -3,6 +3,8 @@ package guest
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -52,6 +54,10 @@ func (b *Builder) Build(ctx context.Context, path string) error {
 	}
 	defer out.Close()
 
+	rng := make([]byte, 16)
+	rand.Read(rng)
+	imageName := fmt.Sprintf("hermit-build-%s", hex.EncodeToString(rng))
+
 	solveOpt := buildkit.SolveOpt{
 		Frontend: "dockerfile.v0",
 		FrontendAttrs: map[string]string{
@@ -65,6 +71,9 @@ func (b *Builder) Build(ctx context.Context, path string) error {
 		Exports: []buildkit.ExportEntry{
 			{
 				Type: buildkit.ExporterDocker,
+				Attrs: map[string]string{
+					"name": imageName,
+				},
 				Output: func(map[string]string) (io.WriteCloser, error) {
 					return out, nil
 				},

@@ -4,6 +4,9 @@ set -e
 
 DEST="${1:-/usr/local/bin}"
 
+CONTAINERD_VERSION="v1.5.5"
+CONTAINERD_SHASUM="8efc527ffb772a82021800f0151374a3113ed2439922497ff08f2596a70f10f1"
+
 RUNC_VERSION="v1.0.2"
 RUNC_SHASUM="44d1ba01a286aaf0b31b4be9c6abc20deab0653d44ecb0d93b4d0d20eac3e0b6"
 
@@ -21,6 +24,40 @@ fetch() {
   echo "$sha  $path" | sha256sum -c - && return 0
   curl -Lo "$path" "$url"
   echo "$sha  $path" | sha256sum -c -
+}
+
+download_containerd() {
+  local CONTAINERD_FILE="/tmp/containerd.tgz"
+  fetch "https://github.com/containerd/containerd/releases/download/${CONTAINERD_VERSION}/containerd-${CONTAINERD_VERSION:1}-linux-amd64.tar.gz" \
+    "$CONTAINERD_FILE" \
+    "$CONTAINERD_SHASUM"
+  tar -xzvvf "$CONTAINERD_FILE" -C "$DEST" --strip-components=1
+  cat <<EOF > "/etc/containerd.toml"
+[grpc]
+  address = "/run/containerd/containerd.sock"
+  uid = 0
+  gid = 4
+EOF
+  cat <<EOF >"/etc/systemd/system/containerd.service"
+[Unit]
+Description=containerd container runtime
+After=network.target local-fs.target
+[Service]
+ExecStart=/usr/local/bin/containerd -c /etc/containerd.toml
+Type=notify
+Delegate=yes
+KillMode=process
+Group=adm
+Restart=always
+RestartSec=5
+LimitNPROC=infinity
+LimitCORE=infinity
+LimitNOFILE=infinity
+TasksMax=infinity
+OOMScoreAdjust=-999
+[Install]
+WantedBy=multi-user.target
+EOF
 }
 
 download_runc() {
@@ -80,7 +117,9 @@ download_firecracker() {
 download_runc
 download_buildkit
 download_firecracker
+download_containerd
 
 systemctl daemon-reload
 systemctl restart buildkit.service
 systemctl restart buildkit.socket
+systemctl restart containerd.service

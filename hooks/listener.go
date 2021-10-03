@@ -37,9 +37,10 @@ type Listener struct {
 	redis   *redis.Client
 	gh      *github.Client
 	builder *build.Builder
+	pusher  *build.Pusher
 }
 
-func NewListener(log logr.Logger, redisC *redis.Client, gh *github.Client, builder *build.Builder) *Listener {
+func NewListener(log logr.Logger, redisC *redis.Client, gh *github.Client, builder *build.Builder, pusher *build.Pusher) *Listener {
 	return &Listener{
 		log:     log,
 		redis:   redisC,
@@ -68,43 +69,51 @@ func (l *Listener) BuildListener(ctx context.Context) {
 	}
 }
 
-func (l *Listener) BuildRequested(ctx context.Context, e *BuildRequest) error {
-	l.log.Info("build requested", "repo", fmt.Sprintf("%s/%s", e.RepoOwner, e.RepoName), "sha", e.SHA)
+func (l *Listener) BuildRequested(ctx context.Context, req *BuildRequest) error {
+	l.log.Info("build requested", "repo", fmt.Sprintf("%s/%s", req.RepoOwner, req.RepoName), "sha", req.SHA)
 	// Delegate everything: this function should be focused on the CheckRun result
 
-	if err := l.buildCheckRunInProgress(ctx, e); err != nil {
+	if err := l.buildCheckRunInProgress(ctx, req); err != nil {
 		return err
 	}
-	result, err := l.builder.Build(ctx, &build.Params{
-		Owner:    e.RepoOwner,
-		Repo:     e.RepoName,
-		Ref:      e.SHA,
-		Hermetic: e.DefaultBranch || e.FromHermit,
-	})
+	params := &build.Params{
+		Owner:    req.RepoOwner,
+		Repo:     req.RepoName,
+		Ref:      req.SHA,
+		Hermetic: req.DefaultBranch || req.FromHermit,
+	}
+	result, err := l.builder.Build(ctx, params)
 	if err != nil {
-		if err := l.buildCheckRunComplete(ctx, e, "failure", result); err != nil {
+		if err := l.buildCheckRunComplete(ctx, req, "failure", result); err != nil {
 			// Log, but the build error is more interesting to return
 			l.log.Error(err, "failed to update checkrun status")
 		}
 		return err
 	}
 
-	if err := l.pushSnapshot(ctx, e, result.Snapshot); err != nil {
+	if err := l.pushSnapshot(ctx, req, result.Snapshot); err != nil {
 		result.Summary = "snapshot error"
-		if err := l.buildCheckRunComplete(ctx, e, "failure", result); err != nil {
+		if err := l.buildCheckRunComplete(ctx, req, "failure", result); err != nil {
 			l.log.Error(err, "failed to update checkrun status")
 		}
 		return err
 	}
 
-	if err := l.buildCheckRunComplete(ctx, e, "success", result); err != nil {
-		return err
-	}
-
 	// TODO: run your scan sir
 
-	if e.DefaultBranch {
-		l.log.Info("TODO: push to default branch, publishing")
+	if req.DefaultBranch {
+		l.log.Info("push to default branch, publishing image")
+		if err := l.pusher.Push(ctx, params); err != nil {
+			result.Summary = "push error"
+			if err := l.buildCheckRunComplete(ctx, req, "failure", result); err != nil {
+				l.log.Error(err, "failed to update checkrun status")
+			}
+			return err
+		}
+	}
+
+	if err := l.buildCheckRunComplete(ctx, req, "success", result); err != nil {
+		return err
 	}
 	return nil
 }
@@ -159,25 +168,25 @@ func (h *Listener) pushSnapshot(ctx context.Context, e *BuildRequest, snap *prox
 	if err != nil {
 		return err
 	}
-	h.log.Info("created tree", "tree", tree.GetSHA(), "base_tree", e.Tree)
-	if tree.GetSHA() == e.Tree {
+	h.log.Info("created tree", "tree", tree.GetSHA(), "base_tree", req.Tree)
+	if tree.GetSHA() == req.Tree {
 		return nil
 	}
 
 	date := time.Now()
-	commit, _, err := h.gh.Git.CreateCommit(ctx, e.RepoOwner, e.RepoName, &github.Commit{
+	commit, _, err := h.gh.Git.CreateCommit(ctx, req.RepoOwner, req.RepoName, &github.Commit{
 		Tree:    tree,
 		Message: github.String("Hermit network snapshot"),
 		Author:  &github.CommitAuthor{Name: github.String("Hermit"), Email: github.String("70587923+wapwagner@users.noreply.github.com"), Date: &date},
-		Parents: []*github.Commit{{SHA: &e.SHA}},
+		Parents: []*github.Commit{{SHA: &req.SHA}},
 	})
 	if err != nil {
 		return err
 	}
 	h.log.Info("created commit", "commit", commit.GetSHA())
 
-	_, _, err = h.gh.Git.UpdateRef(ctx, e.RepoOwner, e.RepoName, &github.Reference{
-		Ref: &e.Ref,
+	_, _, err = h.gh.Git.UpdateRef(ctx, req.RepoOwner, req.RepoName, &github.Reference{
+		Ref: &req.Ref,
 		Object: &github.GitObject{
 			SHA: commit.SHA,
 		},
