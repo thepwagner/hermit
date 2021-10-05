@@ -204,6 +204,12 @@ func (b *Builder) startProxy(ctx context.Context, buildTmp string, clone *Clone,
 
 	b.log.Info("starting proxy", "args", args[1:])
 	cmd := exec.CommandContext(ctx, b.selfExe, args...)
+	for _, env := range os.Environ() {
+		if strings.HasPrefix(env, "REDIS_PASSWORD=") {
+			continue
+		}
+		cmd.Env = append(cmd.Env, env)
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {

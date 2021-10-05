@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"os"
 
 	"github.com/bradleyfalzon/ghinstallation"
 	"github.com/go-logr/logr"
@@ -12,7 +13,8 @@ import (
 )
 
 const (
-	redisUrlFlag                = "redis"
+	redisUrlFlag                = "redis-url"
+	redisPasswordFlag           = "redis-password"
 	githubAppIDFlag             = "github-app-id"
 	githubInstallationIDFlag    = "github-installation-id"
 	githubAppPrivateKeyFileFlag = "github-private-key-file"
@@ -38,7 +40,11 @@ func redisClient(cmd *cobra.Command) (*redis.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return redis.NewClient(&redis.Options{Addr: redisAddr}), nil
+	opts := &redis.Options{Addr: redisAddr}
+	if redisPassword := os.Getenv("REDIS_PASSWORD"); redisPassword != "" {
+		opts.Password = redisPassword
+	}
+	return redis.NewClient(opts), nil
 }
 
 func gitHubClient(cmd *cobra.Command) (*ghinstallation.Transport, *github.Client, error) {
