@@ -26,7 +26,6 @@ type Pusher struct {
 func NewPusher(ctx context.Context, log logr.Logger, ctr *containerd.Client, secret, outputDir string) *Pusher {
 	hostOptions := config.HostOptions{
 		Credentials: func(host string) (string, string, error) {
-			fmt.Println("lookup", host)
 			if host == "registry.k8s.pwagner.net" {
 				return "pwagner", secret, nil
 			}

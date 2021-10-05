@@ -1,0 +1,17 @@
+#!/bin/bash
+set -e
+
+source "$(dirname "$0")/_common"
+HOOKS_HOST=debian@192.168.5.20
+
+mkdir -p "$REPO_ROOT/tmp"
+export GOOS=linux
+export CGOENABLED=0
+
+set -x
+go build -o tmp/hermit ./cmd/hermit
+scp tmp/hermit ${HOOKS_HOST}:
+
+ssh ${HOOKS_HOST} sudo systemctl stop hermit-hooks.service
+ssh ${HOOKS_HOST} sudo mv ~debian/hermit /usr/local/bin/hermit
+ssh ${HOOKS_HOST} sudo systemctl start hermit-hooks.service

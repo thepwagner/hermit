@@ -46,6 +46,7 @@ func NewListener(log logr.Logger, redisC *redis.Client, gh *github.Client, build
 		redis:   redisC,
 		gh:      gh,
 		builder: builder,
+		pusher:  pusher,
 	}
 }
 
@@ -146,8 +147,8 @@ func (h *Listener) buildCheckRunComplete(ctx context.Context, e *BuildRequest, c
 	return err
 }
 
-func (h *Listener) pushSnapshot(ctx context.Context, e *BuildRequest, snap *proxy.Snapshot) error {
-	h.gh.Git.GetTree(ctx, e.RepoOwner, e.RepoName, e.Tree, true)
+func (h *Listener) pushSnapshot(ctx context.Context, req *BuildRequest, snap *proxy.Snapshot) error {
+	h.gh.Git.GetTree(ctx, req.RepoOwner, req.RepoName, req.Tree, true)
 
 	var entries []*github.TreeEntry
 	for host, index := range snap.ByHost() {
@@ -164,7 +165,7 @@ func (h *Listener) pushSnapshot(ctx context.Context, e *BuildRequest, snap *prox
 		})
 	}
 
-	tree, _, err := h.gh.Git.CreateTree(ctx, e.RepoOwner, e.RepoName, e.Tree, entries)
+	tree, _, err := h.gh.Git.CreateTree(ctx, req.RepoOwner, req.RepoName, req.Tree, entries)
 	if err != nil {
 		return err
 	}

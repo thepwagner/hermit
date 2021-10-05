@@ -10,6 +10,11 @@ import (
 	"github.com/thepwagner/hermit/log"
 )
 
+const (
+	hooksTLSKeyFlag  = "tls-key"
+	hooksTLSCertFlag = "tls-cert"
+)
+
 // hooksCmd is a server that listens for GitHub webhooks and pushes interesting events to Redis.
 var hooksCmd = &cobra.Command{
 	Use:    "hooks",
@@ -18,6 +23,15 @@ var hooksCmd = &cobra.Command{
 		// Load configuration
 		token := []byte(os.Getenv("GITHUB_WEBHOOK_SECRET"))
 		redis, err := redisClient(cmd)
+		if err != nil {
+			return err
+		}
+		flags := cmd.Flags()
+		tlsCert, err := flags.GetString(hooksTLSCertFlag)
+		if err != nil {
+			return err
+		}
+		tlsKey, err := flags.GetString(hooksTLSKeyFlag)
 		if err != nil {
 			return err
 		}
@@ -34,12 +48,18 @@ var hooksCmd = &cobra.Command{
 		}
 		hooks := hooks.NewServer(log, redis, gh, botID, token)
 		srv := &http.Server{
-			Addr:    "127.0.0.1:8080",
+			Addr:    "0.0.0.0:8080",
 			Handler: hooks,
 		}
 
 		log.Info("starting server", "addr", srv.Addr)
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+
+		if tlsCert != "" && tlsKey != "" {
+			err = srv.ListenAndServeTLS(tlsCert, tlsKey)
+		} else {
+			err = srv.ListenAndServe()
+		}
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return err
 		}
 		return nil
@@ -47,5 +67,9 @@ var hooksCmd = &cobra.Command{
 }
 
 func init() {
+	flags := hooksCmd.Flags()
+	flags.String(hooksTLSCertFlag, "", "TLS certificate path")
+	flags.String(hooksTLSKeyFlag, "", "TLS key path")
 	rootCmd.AddCommand(hooksCmd)
+
 }
