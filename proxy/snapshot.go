@@ -86,9 +86,13 @@ func (s *Snapshot) Set(key string, data *URLData) {
 }
 
 func (s *Snapshot) Empty() bool {
+	return s.Size() == 0
+}
+
+func (s *Snapshot) Size() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return len(s.Data) == 0
+	return len(s.Data)
 }
 
 func (s *Snapshot) Clear() {
@@ -102,9 +106,6 @@ func (s *Snapshot) ByHost() map[string]map[string]*URLData {
 	defer s.mu.RUnlock()
 	byHost := make(map[string]map[string]*URLData)
 	for k, v := range s.Data {
-		if _, ok := s.used[k]; !ok {
-			continue
-		}
 		u, _ := url.Parse(fmt.Sprintf("https://%s", k))
 		if existing, ok := byHost[u.Host]; ok {
 			existing[k] = v
@@ -119,7 +120,21 @@ func (s *Snapshot) ByHost() map[string]map[string]*URLData {
 func (s *Snapshot) Save(fn string) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	b, err := yaml.Marshal(s.Data)
+
+	var activeData map[string]*URLData
+	if len(s.used) > 0 {
+		activeData = make(map[string]*URLData, len(s.Data))
+		for k, v := range s.Data {
+			if _, ok := s.used[k]; !ok {
+				continue
+			}
+			activeData[k] = v
+		}
+	} else {
+		activeData = s.Data
+	}
+
+	b, err := yaml.Marshal(activeData)
 	if err != nil {
 		return err
 	}

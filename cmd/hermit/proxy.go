@@ -60,6 +60,7 @@ var proxyCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		l.Info("loaded snapshot", "size", snap.Size())
 		if indexOut != "" {
 			defer func() {
 				if err := snap.Save(indexOut); err != nil {

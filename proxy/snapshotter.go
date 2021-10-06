@@ -37,29 +37,38 @@ func NewSnapshotter(log logr.Logger, snap *Snapshot, storage Storage) *Snapshott
 
 func (s *Snapshotter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	key := fmt.Sprintf("%s%s", r.Host, r.URL.Path)
+	log := s.log.WithValues("url", key)
+
 	if !(refreshRequest(r) || noStoreRequest(r)) {
 		if stored := s.snap.Get(key); stored != nil {
-			if r.Method == http.MethodGet {
-				w.Header().Set("Content-Type", stored.ContentType)
+			switch r.Method {
+			case http.MethodGet:
 				b, err := s.storage.Load(stored)
 				if err != nil {
-					s.log.Error(err, "failed to get content")
+					http.NotFound(w, r)
+					log.Error(err, "failed to get content")
 					return
 				}
+
+				log.Info("served response from storage", "sha256", stored.Sha256)
+				w.Header().Set("Content-Type", stored.ContentType)
 				w.WriteHeader(stored.StatusCode)
 				w.Write(b)
+			case http.MethodHead:
+				w.WriteHeader(http.StatusOK)
 			}
 			return
 		}
 	}
 
 	if lockedRequest(r) {
+		log.Info("locked request not found", "refresh_req", refreshRequest(r), "no_store_req", noStoreRequest(r))
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
 
 	if err := s.captureResponse(w, r, key); err != nil {
-		s.log.Error(err, "capturing response")
+		log.Error(err, "error capturing response")
 		http.Error(w, "", http.StatusInternalServerError)
 	}
 }
@@ -82,7 +91,7 @@ func (s *Snapshotter) captureResponse(w http.ResponseWriter, r *http.Request, ke
 	default:
 		// passthrough
 	}
-	if r.Method == http.MethodGet && !noStoreRequest(r) && bufW.Code != http.StatusNotModified {
+	if r.Method == http.MethodGet && !noStoreRequest(r) {
 		if err := decompressBody(bufW); err != nil {
 			return fmt.Errorf("reading gzip: %w", err)
 		}
