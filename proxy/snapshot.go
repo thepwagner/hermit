@@ -15,11 +15,13 @@ import (
 type Snapshot struct {
 	mu   sync.RWMutex
 	Data map[string]*URLData `yaml:"data"`
+	used map[string]struct{}
 }
 
 func NewSnapshot() *Snapshot {
 	return &Snapshot{
 		Data: make(map[string]*URLData),
+		used: make(map[string]struct{}),
 	}
 }
 
@@ -72,12 +74,14 @@ func LoadSnapshot(index string) (*Snapshot, error) {
 func (s *Snapshot) Get(key string) *URLData {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	s.used[key] = struct{}{}
 	return s.Data[key]
 }
 
 func (s *Snapshot) Set(key string, data *URLData) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.used[key] = struct{}{}
 	s.Data[key] = data
 }
 
@@ -98,6 +102,9 @@ func (s *Snapshot) ByHost() map[string]map[string]*URLData {
 	defer s.mu.RUnlock()
 	byHost := make(map[string]map[string]*URLData)
 	for k, v := range s.Data {
+		if _, ok := s.used[k]; !ok {
+			continue
+		}
 		u, _ := url.Parse(fmt.Sprintf("https://%s", k))
 		if existing, ok := byHost[u.Host]; ok {
 			existing[k] = v
