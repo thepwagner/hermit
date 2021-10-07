@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -82,7 +83,13 @@ func (s *Snapshot) Set(key string, data *URLData) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.used[key] = struct{}{}
-	s.Data[key] = data
+	if _, ok := s.Data[key]; !ok {
+		// First seen, save
+		s.Data[key] = data
+	} else if data.StatusCode != http.StatusNotModified {
+		// Don't replace the initial request with a noop
+		s.Data[key] = data
+	}
 }
 
 func (s *Snapshot) Empty() bool {
