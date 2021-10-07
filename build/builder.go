@@ -120,6 +120,10 @@ func (b *Builder) Build(ctx context.Context, params *Params) (*Result, error) {
 		vmLogs = vmLogs[:strings.LastIndex(vmLogs, "[ ")]
 	}
 
+	if len(vmLogs) > 65500 {
+		vmLogs = vmLogs[len(vmLogs)-65500:] + "\n..."
+	}
+
 	res.Output = fmt.Sprintf("```\n%s\n```\n", vmLogs)
 
 	if err := prx.Process.Signal(syscall.SIGTERM); err != nil {

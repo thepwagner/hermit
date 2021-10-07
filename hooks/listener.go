@@ -78,10 +78,11 @@ func (l *Listener) BuildRequested(ctx context.Context, req *BuildRequest) error 
 		return err
 	}
 	params := &build.Params{
-		Owner:    req.RepoOwner,
-		Repo:     req.RepoName,
-		Ref:      req.SHA,
-		Hermetic: req.DefaultBranch || req.FromHermit,
+		Owner:        req.RepoOwner,
+		Repo:         req.RepoName,
+		Ref:          req.SHA,
+		Hermetic:     req.DefaultBranch || req.FromHermit,
+		OutputSizeMB: 256,
 	}
 	result, err := l.builder.Build(ctx, params)
 	if err != nil {
