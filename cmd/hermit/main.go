@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/bradleyfalzon/ghinstallation"
+	"github.com/containerd/containerd"
 	"github.com/go-logr/logr"
 	"github.com/go-redis/redis/v8"
 	"github.com/google/go-github/v39/github"
@@ -78,6 +79,10 @@ func newBuilder(cmd *cobra.Command, l logr.Logger) (*build.Builder, error) {
 	cloner := build.NewGitCloner(l, gh, tokens, srcDir)
 	fc := build.NewFirecracker(l)
 	return build.NewBuilder(l, cloner, fc, outputDir)
+}
+
+func newContainerd() (*containerd.Client, error) {
+	return containerd.New("/run/containerd/containerd.sock", containerd.WithDefaultNamespace("hermit"))
 }
 
 func main() {

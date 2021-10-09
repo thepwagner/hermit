@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 
-	"github.com/containerd/containerd"
 	"github.com/spf13/cobra"
 	"github.com/thepwagner/hermit/build"
 	"github.com/thepwagner/hermit/hooks"
@@ -28,7 +27,7 @@ var listenerCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		ctr, err := containerd.New("/run/containerd/containerd.sock", containerd.WithDefaultNamespace("hermit"))
+		ctr, err := newContainerd()
 		if err != nil {
 			return err
 		}
