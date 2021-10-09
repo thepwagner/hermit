@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
+	"text/template"
 
 	"github.com/aquasecurity/trivy/pkg/report"
 	"github.com/containerd/containerd"
@@ -96,6 +98,7 @@ func (s *Scanner) startContainer(ctx context.Context, targetImage string) (*scan
 			"--quiet",
 			"image",
 			"--skip-update",
+			"--ignore-unfixed",
 			"--format", "json",
 			"--input", "/input/image.tar",
 		),
@@ -144,4 +147,40 @@ func (s *scanTask) Close(ctx context.Context) (retErr error) {
 		retErr = err
 	}
 	return
+}
+
+var reportMarkdown = template.Must(template.New("report").Parse(`
+# Scan Results
+
+` + "`" + `{{.Metadata.ImageID}}` + "`" + `
+
+{{.Metadata.OS.Family}} {{.Metadata.OS.Name}} {{if .Metadata.OS.Eosl}}⚠️ End of Life!{{end}}
+
+{{range $result := .Results}}
+
+### {{$result.Type}}
+
+
+{{if $result.Vulnerabilities}}
+⚠️ {{$result.Vulnerabilities | len}} fixable vulnerabilities found
+
+| Package | Version | FixedVersion | Severity | Description |
+|---------|---------|--------------|----------|-------------|
+{{range $result.Vulnerabilities}}| {{.PkgName}} | {{.InstalledVersion}} | {{.FixedVersion}} | {{.Severity}} | {{.Description}} |
+{{end}}
+{{else}}
+✅ All good!
+{{end}}
+
+{{end}}
+`))
+
+func RenderReport(r *report.Report) (string, error) {
+	sort.Slice(r.Results, func(i, j int) bool { return r.Results[i].Type < r.Results[j].Type })
+
+	var buf bytes.Buffer
+	if err := reportMarkdown.Execute(&buf, r); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }

@@ -30,7 +30,12 @@ var scanCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Println(report)
+		reportMD, err := build.RenderReport(report)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(reportMD)
 		return nil
 	},
 }
