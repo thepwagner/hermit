@@ -86,7 +86,7 @@ func (b *Builder) Build(ctx context.Context, params *Params) (*Result, error) {
 		res.Summary = "could not create tempfile for output"
 		return res, err
 	}
-	defer func() { _ = os.Remove(outputTmp) }()
+	defer func() { _ = os.RemoveAll(outputTmp) }()
 	var outputSize int
 	if params.OutputSizeMB > 0 {
 		outputSize = params.OutputSizeMB
