@@ -3,6 +3,7 @@ package proxy
 import (
 	"bytes"
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"net/http/httputil"
 
 	"github.com/go-logr/logr"
+	"github.com/go-redis/redis/v8"
 )
 
 type Snapshotter struct {
@@ -45,15 +47,17 @@ func (s *Snapshotter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			case http.MethodGet:
 				b, err := s.storage.Load(stored)
 				if err != nil {
-					http.NotFound(w, r)
-					log.Error(err, "failed to get content")
-					return
+					if !errors.Is(err, redis.Nil) {
+						http.NotFound(w, r)
+						log.Error(err, "failed to get content")
+						return
+					}
+				} else {
+					log.Info("served response from storage", "sha256", stored.Sha256)
+					w.Header().Set("Content-Type", stored.ContentType)
+					w.WriteHeader(stored.StatusCode)
+					w.Write(b)
 				}
-
-				log.Info("served response from storage", "sha256", stored.Sha256)
-				w.Header().Set("Content-Type", stored.ContentType)
-				w.WriteHeader(stored.StatusCode)
-				w.Write(b)
 			case http.MethodHead:
 				w.WriteHeader(http.StatusOK)
 			}
