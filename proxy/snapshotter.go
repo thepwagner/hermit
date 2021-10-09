@@ -51,17 +51,19 @@ func (s *Snapshotter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						http.NotFound(w, r)
 						log.Error(err, "failed to get content")
 						return
-					}
-				} else {
-					log.Info("served response from storage", "sha256", stored.Sha256)
+					} // else - fallthrough
+				} else if len(b) == stored.ContentLength {
+					log.Info("served response from storage", "status", stored.StatusCode, "sha256", stored.Sha256)
 					w.Header().Set("Content-Type", stored.ContentType)
 					w.WriteHeader(stored.StatusCode)
 					w.Write(b)
+					return
 				}
 			case http.MethodHead:
 				w.WriteHeader(http.StatusOK)
+				return
 			}
-			return
+			log.Info("cache miss")
 		}
 	}
 

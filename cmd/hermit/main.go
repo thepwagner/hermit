@@ -47,7 +47,7 @@ func redisClient(cmd *cobra.Command) (*redis.Client, error) {
 	return redis.NewClient(opts), nil
 }
 
-func gitHubClient(cmd *cobra.Command) (*ghinstallation.Transport, *github.Client, error) {
+func gitHubClient(cmd *cobra.Command) (build.TokenSource, *github.Client, error) {
 	flags := cmd.Flags()
 	appID, err := flags.GetInt64(githubAppIDFlag)
 	if err != nil {
@@ -66,21 +66,16 @@ func gitHubClient(cmd *cobra.Command) (*ghinstallation.Transport, *github.Client
 	if err != nil {
 		return nil, nil, err
 	}
-	return ghTransport, github.NewClient(&http.Client{Transport: ghTransport}), nil
+	return ghTransport.Token, github.NewClient(&http.Client{Transport: ghTransport}), nil
 }
 
 func newBuilder(cmd *cobra.Command, l logr.Logger) (*build.Builder, error) {
-	ghTransport, gh, err := gitHubClient(cmd)
-	if err != nil {
-		return nil, err
-	}
-	ctx := cmd.Context()
-	ghToken, err := ghTransport.Token(ctx)
+	tokens, gh, err := gitHubClient(cmd)
 	if err != nil {
 		return nil, err
 	}
 
-	cloner := build.NewGitCloner(l, gh, ghToken, srcDir)
+	cloner := build.NewGitCloner(l, gh, tokens, srcDir)
 	fc := build.NewFirecracker(l)
 	return build.NewBuilder(l, cloner, fc, outputDir)
 }

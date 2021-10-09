@@ -12,27 +12,25 @@ import (
 	"github.com/thepwagner/hermit/proxy"
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
-	"gopkg.in/src-d/go-git.v4/plumbing/transport"
 	"gopkg.in/src-d/go-git.v4/plumbing/transport/http"
 )
+
+type TokenSource func(context.Context) (string, error)
 
 type GitCloner struct {
 	log         logr.Logger
 	gh          *github.Client
-	auth        transport.AuthMethod
+	tokenSource TokenSource
 	cloneDir    string
 	cloneSizeMB int
 }
 
-func NewGitCloner(log logr.Logger, gh *github.Client, ghToken, cloneDir string) *GitCloner {
+func NewGitCloner(log logr.Logger, gh *github.Client, tokenSource TokenSource, cloneDir string) *GitCloner {
 	return &GitCloner{
-		log:      log,
-		gh:       gh,
-		cloneDir: cloneDir,
-		auth: &http.BasicAuth{
-			Username: "x-access-token",
-			Password: ghToken,
-		},
+		log:         log,
+		gh:          gh,
+		cloneDir:    cloneDir,
+		tokenSource: tokenSource,
 		cloneSizeMB: 512,
 	}
 }
@@ -102,6 +100,15 @@ func (g *GitCloner) Clone(ctx context.Context, owner, repo, commit string) (*Clo
 	defer mnt.Close(ctx)
 	g.log.Info("mounted volume", "src", f, "mnt", mnt.Path())
 
+	token, err := g.tokenSource(ctx)
+	if err != nil {
+		return nil, err
+	}
+	auth := &http.BasicAuth{
+		Username: "x-access-token",
+		Password: token,
+	}
+
 	// Refresh the git clone therein.
 	var r *git.Repository
 	if parent != "" {
@@ -110,14 +117,14 @@ func (g *GitCloner) Clone(ctx context.Context, owner, repo, commit string) (*Clo
 		if err != nil {
 			return nil, err
 		}
-		if err := r.FetchContext(ctx, &git.FetchOptions{Auth: g.auth}); err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
+		if err := r.FetchContext(ctx, &git.FetchOptions{Auth: auth}); err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 			return nil, fmt.Errorf("fetching to update: %w", err)
 		}
 	} else {
 		g.log.Info("cloning in to volume", "mnt", mnt.Path())
 		r, err = git.PlainClone(mnt.Path(), false, &git.CloneOptions{
 			URL:  fmt.Sprintf("https://github.com/%s/%s.git", owner, repo),
-			Auth: g.auth,
+			Auth: auth,
 		})
 		if err != nil {
 			return nil, err
