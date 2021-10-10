@@ -43,25 +43,25 @@ func (s *Snapshotter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if !(refreshRequest(r) || noStoreRequest(r)) {
 		if stored := s.snap.Get(key); stored != nil {
-			switch r.Method {
-			case http.MethodGet:
-				b, err := s.storage.Load(stored)
-				if err != nil {
-					if !errors.Is(err, redis.Nil) {
-						http.NotFound(w, r)
-						log.Error(err, "failed to get content")
-						return
-					} // else - fallthrough
-				} else if len(b) == stored.ContentLength {
+			b, err := s.storage.Load(stored)
+			if err != nil {
+				if !errors.Is(err, redis.Nil) {
+					http.NotFound(w, r)
+					log.Error(err, "failed to get content")
+					return
+				} // else - fallthrough
+			} else if len(b) == stored.ContentLength {
+				switch r.Method {
+				case http.MethodGet:
 					log.Info("served response from storage", "status", stored.StatusCode, "sha256", stored.Sha256)
 					w.Header().Set("Content-Type", stored.ContentType)
 					w.WriteHeader(stored.StatusCode)
 					w.Write(b)
 					return
+				case http.MethodHead:
+					w.WriteHeader(http.StatusOK)
+					return
 				}
-			case http.MethodHead:
-				w.WriteHeader(http.StatusOK)
-				return
 			}
 			log.Info("cache miss")
 		}

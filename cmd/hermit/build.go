@@ -74,7 +74,6 @@ var buildCmd = &cobra.Command{
 			Hermetic: defaultBranch,
 		}
 		result, err := builder.Build(ctx, params)
-
 		if result != nil {
 			fmt.Println("---Build Result---")
 			if result.Summary != "" {

@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 
+	"github.com/containerd/containerd/namespaces"
 	"github.com/spf13/cobra"
 	"github.com/thepwagner/hermit/build"
 	"github.com/thepwagner/hermit/hooks"
@@ -31,10 +32,11 @@ var listenerCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		ctx := cmd.Context()
+		ctx := namespaces.WithNamespace(cmd.Context(), "hermit")
 		pusher := build.NewPusher(ctx, l, ctr, pushSecret, outputDir)
+		scanner := build.NewScanner(l, ctr, outputDir)
 
-		h := hooks.NewListener(l, redis, gh, builder, pusher)
+		h := hooks.NewListener(l, redis, gh, builder, scanner, pusher)
 		h.BuildListener(ctx)
 		return nil
 	},
