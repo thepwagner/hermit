@@ -51,11 +51,10 @@ func NewBuilder(log logr.Logger, cloner *GitCloner, vm *Firecracker, outputDir s
 }
 
 type Params struct {
-	Owner        string
-	Repo         string
-	Ref          string
-	Hermetic     bool
-	OutputSizeMB int
+	Owner    string
+	Repo     string
+	Ref      string
+	Hermetic bool
 }
 
 type Result struct {
@@ -63,6 +62,8 @@ type Result struct {
 	Summary  string
 	Output   string
 }
+
+const outputSize = 512
 
 func (b *Builder) Build(ctx context.Context, params *Params) (*Result, error) {
 	res := &Result{}
@@ -87,17 +88,11 @@ func (b *Builder) Build(ctx context.Context, params *Params) (*Result, error) {
 		return res, err
 	}
 	defer func() { _ = os.RemoveAll(outputTmp) }()
-	var outputSize int
-	if params.OutputSizeMB > 0 {
-		outputSize = params.OutputSizeMB
-	} else {
-		outputSize = 64 // 64MB ought to be enough for anybody
-	}
 	if err := CreateVolume(ctx, outputTmp, outputSize); err != nil {
 		res.Summary = "could not create output voulume"
 		return res, err
 	}
-	b.log.Info("output volume created", "src", outputTmp)
+	b.log.Info("output volume created", "src", outputTmp, "size", outputSize)
 
 	prx, err := b.startProxy(ctx, buildTmp, clone, params.Hermetic)
 	if err != nil {
@@ -121,7 +116,7 @@ func (b *Builder) Build(ctx context.Context, params *Params) (*Result, error) {
 	}
 
 	if len(vmLogs) > 65500 {
-		vmLogs = vmLogs[len(vmLogs)-65500:] + "\n..."
+		vmLogs = vmLogs[:32000] + "\n...\n" + vmLogs[len(vmLogs)-32000:]
 	}
 
 	res.Output = fmt.Sprintf("```\n%s\n```\n", vmLogs)
