@@ -160,6 +160,7 @@ var reportMarkdown = template.Must(template.New("report").Parse(`
 
 ### {{$result.Type}}
 
+{{$result.Target}}
 
 {{if $result.Vulnerabilities}}
 ⚠️ {{$result.Vulnerabilities | len}} fixable vulnerabilities found
