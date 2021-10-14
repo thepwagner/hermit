@@ -154,8 +154,9 @@ var reportMarkdown = template.Must(template.New("report").Parse(`
 
 ` + "`" + `{{.Metadata.ImageID}}` + "`" + `
 
+{{if .Metadata.OS}}
 {{.Metadata.OS.Family}} {{.Metadata.OS.Name}} {{if .Metadata.OS.Eosl}}⚠️ End of Life!{{end}}
-
+{{end}}
 {{range $result := .Results}}
 
 ### {{$result.Type}}
