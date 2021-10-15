@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/containerd/containerd"
+	"github.com/docker/docker/client"
 	"github.com/spf13/cobra"
 	"github.com/thepwagner/hermit/build"
 	"github.com/thepwagner/hermit/log"
@@ -57,11 +57,14 @@ var buildCmd = &cobra.Command{
 		sha := branch.GetCommit().GetSHA()
 		l.Info("resolved ref", "owner", owner, "repo", repo, "ref", ref, "sha", sha, "default", defaultBranch)
 
-		ctr, err := containerd.New("/run/containerd/containerd.sock", containerd.WithDefaultNamespace("hermit"))
+		docker, err := client.NewEnvClient()
 		if err != nil {
 			return err
 		}
-		pusher := build.NewPusher(ctx, l, ctr, pushSecret, outputDir)
+		pusher, err := build.NewPusher(ctx, l, docker, pushSecret, outputDir)
+		if err != nil {
+			return err
+		}
 
 		builder, err := newBuilder(cmd, l)
 		if err != nil {
@@ -99,7 +102,7 @@ var buildCmd = &cobra.Command{
 func init() {
 	flags := buildCmd.Flags()
 	flags.String(repoOwner, "thepwagner-org", "GitHub repository owner")
-	flags.StringP(repoName, "r", "debian-bullseye", "GitHub	 repository name")
+	flags.StringP(repoName, "r", "sonarr", "GitHub repository name")
 	flags.String(repoRef, "main", "GitHub repository ref")
 	rootCmd.AddCommand(buildCmd)
 }

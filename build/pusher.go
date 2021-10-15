@@ -1,45 +1,44 @@
 package build
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
-	"github.com/containerd/containerd"
-	"github.com/containerd/containerd/errdefs"
-	"github.com/containerd/containerd/images/archive"
-	"github.com/containerd/containerd/remotes"
-	"github.com/containerd/containerd/remotes/docker"
-	"github.com/containerd/containerd/remotes/docker/config"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/go-logr/logr"
 )
 
 type Pusher struct {
 	log       logr.Logger
-	ctr       *containerd.Client
+	docker    *client.Client
 	outputDir string
 	registry  string
-	resolver  remotes.Resolver
+	auth      string
 }
 
-func NewPusher(ctx context.Context, log logr.Logger, ctr *containerd.Client, secret, outputDir string) *Pusher {
-	hostOptions := config.HostOptions{
-		Credentials: func(host string) (string, string, error) {
-			if host == "registry.k8s.pwagner.net" {
-				return "pwagner", secret, nil
-			}
-			return "", "", nil
-		},
+func NewPusher(ctx context.Context, log logr.Logger, docker *client.Client, secret, outputDir string) (*Pusher, error) {
+	authJSON, err := json.Marshal(types.AuthConfig{
+		Username: "pwagner",
+		Password: secret,
+	})
+	if err != nil {
+		return nil, err
 	}
-	options := docker.ResolverOptions{Hosts: config.ConfigureHosts(ctx, hostOptions)}
 	return &Pusher{
 		log:       log,
-		ctr:       ctr,
+		docker:    docker,
 		outputDir: outputDir,
 		registry:  "registry.k8s.pwagner.net/library",
-		resolver:  docker.NewResolver(options),
-	}
+		auth:      base64.URLEncoding.EncodeToString(authJSON),
+	}, nil
 }
 
 func (p *Pusher) Push(ctx context.Context, params *Params) error {
@@ -55,40 +54,53 @@ func (p *Pusher) Push(ctx context.Context, params *Params) error {
 		return err
 	}
 	defer f.Close()
-	repoName := fmt.Sprintf("%s/%s:latest", p.registry, params.Repo)
-	images, err := p.ctr.Import(ctx, f, containerd.WithImageRefTranslator(archive.AddRefPrefix(repoName)), containerd.WithAllPlatforms(true))
+
+	// Load image from tar:
+	loadRes, err := p.docker.ImageLoad(ctx, f, true)
 	if err != nil {
 		return err
 	}
-	image := images[0]
-	imageService := p.ctr.ImageService()
-	imgName := image.Name
-	defer func() {
-		if err := imageService.Delete(ctx, imgName); err != nil {
-			p.log.Error(err, "failed to imported image")
-		}
-	}()
-
-	// Apply remote tag to image:
-	image.Name = repoName
-	if _, err := imageService.Create(ctx, image); err != nil {
-		if !errdefs.IsAlreadyExists(err) {
-			return err
-		}
-		if err := imageService.Delete(ctx, repoName); err != nil {
-			return err
-		}
-		if _, err := imageService.Create(ctx, image); err != nil {
-			return err
-		}
+	defer loadRes.Body.Close()
+	var buf bytes.Buffer
+	if err := jsonmessage.DisplayJSONMessagesStream(loadRes.Body, &buf, 0, false, nil); err != nil {
+		return err
+	}
+	loadOutput := buf.String()
+	if !strings.HasPrefix(loadOutput, "Loaded image: ") {
+		return fmt.Errorf("unexpected response: %s", loadOutput)
+	}
+	imageName := strings.TrimSpace(loadOutput[len("Loaded image: "):])
+	p.log.Info("Loaded image", "image", imageName)
+	rmOpts := types.ImageRemoveOptions{
+		Force:         true,
+		PruneChildren: true,
 	}
 	defer func() {
-		if err := imageService.Delete(ctx, repoName); err != nil {
-			p.log.Error(err, "failed to imported image")
+		if _, err := p.docker.ImageRemove(ctx, imageName, rmOpts); err != nil {
+			p.log.Error(err, "failed to remove imported image")
 		}
 	}()
 
-	// Push remote image
-	p.log.Info("pushing image", "image", repoName, "digest", image.Target.Digest.String())
-	return p.ctr.Push(ctx, repoName, image.Target, containerd.WithResolver(p.resolver))
+	repoName := fmt.Sprintf("%s/%s:latest", p.registry, params.Repo)
+	if err := p.docker.ImageTag(ctx, imageName, repoName); err != nil {
+		return err
+	}
+	defer func() {
+		if _, err := p.docker.ImageRemove(ctx, repoName, rmOpts); err != nil {
+			p.log.Error(err, "failed to remove tagged image")
+		}
+	}()
+
+	pushRes, err := p.docker.ImagePush(ctx, repoName, types.ImagePushOptions{RegistryAuth: p.auth})
+	if err != nil {
+		return err
+	}
+	defer pushRes.Close()
+	if err := jsonmessage.DisplayJSONMessagesStream(pushRes, os.Stdout, 0, false, nil); err != nil {
+		return err
+	}
+	// // Push remote image
+	// p.log.Info("pushing image", "image", repoName, "digest", image.Target.Digest.String())
+	// return p.ctr.Push(ctx, repoName, image.Target, containerd.WithResolver(p.resolver))
+	return nil
 }
