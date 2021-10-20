@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- deployment.yaml
+images:
+  - name: redis
+    newName: redislabs/redis
+    newTag: 6.2.5-alpine@sha256:f2ee1834ea8064a9da196dc87cae306087fb0d4f44113172c9144f6dcfcb3ad8

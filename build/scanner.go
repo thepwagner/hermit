@@ -14,6 +14,7 @@ import (
 	"github.com/aquasecurity/trivy/pkg/report"
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/cio"
+	"github.com/containerd/containerd/namespaces"
 	"github.com/containerd/containerd/oci"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
@@ -45,11 +46,12 @@ func (s *Scanner) ScanBuildOutput(ctx context.Context, params *Params) (*report.
 		return nil, err
 	}
 	defer mnt.Close(ctx)
+
 	return s.Scan(ctx, filepath.Join(mnt.Path(), "image.tar"))
 }
 
-func (s *Scanner) Scan(ctx context.Context, targetImagePath string) (*report.Report, error) {
-	ctr, err := s.startContainer(ctx, targetImagePath)
+func (s *Scanner) Scan(ctx context.Context, targetImage string) (*report.Report, error) {
+	ctr, err := s.startContainer(ctx, targetImage)
 	if err != nil {
 		return nil, fmt.Errorf("creating container: %w", err)
 	}
@@ -90,27 +92,28 @@ func (s *Scanner) startContainer(ctx context.Context, targetImage string) (*scan
 	}
 	s.log.Info("starting scan container", "target", targetImage, "scannerImg", scannerImg.Name())
 
+	processArgs := []string{
+		"/usr/local/bin/trivy",
+		"--cache-dir", "/trivy-db",
+		"--quiet",
+		"image",
+		"--skip-update",
+		"--ignore-unfixed",
+		"--format", "json",
+		"--input", filepath.Join("/input", filepath.Base(targetImage)),
+	}
+	mounts := []specs.Mount{{
+		Type:        "rbind",
+		Source:      filepath.Dir(targetImage),
+		Destination: "/input",
+		Options:     []string{"rbind", "ro"},
+	}}
+
 	containerName := fmt.Sprintf("scanner-%s", uuid.NewString())
 	imageSpec := []oci.SpecOpts{
-		oci.WithProcessArgs(
-			"/usr/local/bin/trivy",
-			"--cache-dir", "/trivy-db",
-			"--quiet",
-			"image",
-			"--skip-update",
-			"--ignore-unfixed",
-			"--format", "json",
-			"--input", "/input/image.tar",
-		),
+		oci.WithProcessArgs(processArgs...),
 		oci.WithEnv([]string{"TRIVY_NEW_JSON_SCHEMA=true"}),
-		oci.WithMounts([]specs.Mount{
-			{
-				Type:        "rbind",
-				Source:      filepath.Dir(targetImage),
-				Destination: "/input",
-				Options:     []string{"rbind", "ro"},
-			},
-		}),
+		oci.WithMounts(mounts),
 	}
 
 	ctr, err := s.containerd.NewContainer(ctx, containerName, containerd.WithNewSnapshot(containerName, scannerImg), containerd.WithNewSpec(imageSpec...))
@@ -123,6 +126,7 @@ func (s *Scanner) startContainer(ctx context.Context, targetImage string) (*scan
 		_ = ctr.Delete(ctx)
 		return nil, err
 	}
+
 	if err := task.Start(ctx); err != nil {
 		_, _ = task.Delete(ctx)
 		_ = ctr.Delete(ctx)
@@ -185,4 +189,13 @@ func RenderReport(r *report.Report) (string, error) {
 		return "", err
 	}
 	return buf.String(), nil
+}
+
+func fullID(ctx context.Context, c containerd.Container) string {
+	id := c.ID()
+	ns, ok := namespaces.Namespace(ctx)
+	if !ok {
+		return id
+	}
+	return fmt.Sprintf("%s-%s", ns, id)
 }
