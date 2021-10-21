@@ -43,8 +43,9 @@ var listenerCmd = &cobra.Command{
 			return err
 		}
 		scanner := build.NewScanner(l, ctr, outputDir)
+		snapshotPusher := hooks.NewSnapshotPusher(l, gh)
 
-		h := hooks.NewListener(l, redis, gh, builder, scanner, pusher)
+		h := hooks.NewListener(l, redis, gh, builder, scanner, pusher, snapshotPusher)
 		h.BuildListener(ctx)
 		return nil
 	},

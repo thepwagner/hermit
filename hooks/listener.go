@@ -5,14 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/go-redis/redis/v8"
 	"github.com/google/go-github/v39/github"
 	"github.com/thepwagner/hermit/build"
-	"github.com/thepwagner/hermit/proxy"
-	"gopkg.in/yaml.v3"
 )
 
 // buildRequestQueue is a redis key for the build request queue
@@ -34,22 +31,24 @@ type BuildRequest struct {
 
 // Listener consumes build requests from a Redis queue and performs builds.
 type Listener struct {
-	log     logr.Logger
-	redis   *redis.Client
-	gh      *github.Client
-	builder *build.Builder
-	scanner *build.Scanner
-	pusher  *build.Pusher
+	log            logr.Logger
+	redis          *redis.Client
+	gh             *github.Client
+	builder        *build.Builder
+	scanner        *build.Scanner
+	pusher         *build.Pusher
+	snapshotPusher *SnapshotPusher
 }
 
-func NewListener(log logr.Logger, redisC *redis.Client, gh *github.Client, builder *build.Builder, scanner *build.Scanner, pusher *build.Pusher) *Listener {
+func NewListener(log logr.Logger, redisC *redis.Client, gh *github.Client, builder *build.Builder, scanner *build.Scanner, pusher *build.Pusher, snapshotPusher *SnapshotPusher) *Listener {
 	return &Listener{
-		log:     log,
-		redis:   redisC,
-		gh:      gh,
-		builder: builder,
-		scanner: scanner,
-		pusher:  pusher,
+		log:            log,
+		redis:          redisC,
+		gh:             gh,
+		builder:        builder,
+		scanner:        scanner,
+		pusher:         pusher,
+		snapshotPusher: snapshotPusher,
 	}
 }
 
@@ -95,12 +94,26 @@ func (l *Listener) BuildRequested(ctx context.Context, req *BuildRequest) error 
 		return err
 	}
 
-	if err := l.pushSnapshot(ctx, req, result.Snapshot); err != nil {
+	pushed, err := l.snapshotPusher.Push(ctx, &SnapshotPushRequest{
+		RepoOwner:       req.RepoOwner,
+		RepoName:        req.RepoName,
+		Ref:             req.Ref,
+		DefaultBranch:   req.DefaultBranch,
+		BaseTree:        req.Tree,
+		ParentCommitSHA: req.SHA,
+	}, result.Snapshot)
+	if err != nil {
 		result.Summary = "snapshot error"
 		if err := l.buildCheckRunComplete(ctx, req, "failure", result); err != nil {
 			l.log.Error(err, "failed to update checkrun status")
 		}
 		return err
+	} else if pushed {
+		result.Summary = "snapshot out of date"
+		if err := l.buildCheckRunComplete(ctx, req, "failure", result); err != nil {
+			l.log.Error(err, "failed to update checkrun status")
+		}
+		return nil
 	}
 
 	if err := l.scanAndReport(ctx, req.Ref, params); err != nil {
@@ -200,58 +213,4 @@ func (l *Listener) scanAndReport(ctx context.Context, ref string, params *build.
 		return nil
 	}
 	return nil
-}
-
-func (h *Listener) pushSnapshot(ctx context.Context, req *BuildRequest, snap *proxy.Snapshot) error {
-	h.gh.Git.GetTree(ctx, req.RepoOwner, req.RepoName, req.Tree, true)
-
-	var entries []*github.TreeEntry
-	for host, index := range snap.ByHost() {
-		b, err := yaml.Marshal(index)
-		if err != nil {
-			return err
-		}
-
-		entries = append(entries, &github.TreeEntry{
-			Path:    github.String(fmt.Sprintf(".hermit/network/%s.yaml", host)),
-			Mode:    github.String("100644"),
-			Type:    github.String("blob"),
-			Content: github.String(string(b)),
-		})
-	}
-
-	tree, _, err := h.gh.Git.CreateTree(ctx, req.RepoOwner, req.RepoName, req.Tree, entries)
-	if err != nil {
-		return err
-	}
-	h.log.Info("created tree", "tree", tree.GetSHA(), "base_tree", req.Tree)
-	if tree.GetSHA() == req.Tree {
-		return nil
-	}
-
-	date := time.Now()
-	commit, _, err := h.gh.Git.CreateCommit(ctx, req.RepoOwner, req.RepoName, &github.Commit{
-		Tree:    tree,
-		Message: github.String("Hermit network snapshot"),
-		Author:  &github.CommitAuthor{Name: github.String("Hermit"), Email: github.String("70587923+wapwagner@users.noreply.github.com"), Date: &date},
-		Parents: []*github.Commit{{SHA: &req.SHA}},
-	})
-	if err != nil {
-		return err
-	}
-	h.log.Info("created commit", "commit", commit.GetSHA())
-
-	_, _, err = h.gh.Git.UpdateRef(ctx, req.RepoOwner, req.RepoName, &github.Reference{
-		Ref: &req.Ref,
-		Object: &github.GitObject{
-			SHA: commit.SHA,
-		},
-	}, false)
-	if err != nil {
-		return err
-	}
-	h.log.Info("updated ref, push complete")
-
-	// Still return an error, so the build is mark as failed
-	return fmt.Errorf("snapshot out of date")
 }

@@ -7,13 +7,15 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/spf13/cobra"
 	"github.com/thepwagner/hermit/build"
+	"github.com/thepwagner/hermit/hooks"
 	"github.com/thepwagner/hermit/log"
 )
 
 const (
-	repoOwner = "owner"
-	repoName  = "repo"
-	repoRef   = "ref"
+	repoOwner   = "owner"
+	repoName    = "repo"
+	repoRef     = "ref"
+	rebuildFlag = "rebuild"
 
 	srcDir    = "/mnt/src"
 	outputDir = "/mnt/output"
@@ -36,6 +38,11 @@ var buildCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		rebuild, err := flags.GetBool(rebuildFlag)
+		if err != nil {
+			return err
+		}
+
 		pushSecret := os.Getenv("REGISTRY_PUSH_PASSWORD")
 		l.Info("building", "owner", owner, "repo", repo, "ref", ref)
 
@@ -61,20 +68,21 @@ var buildCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		pusher, err := build.NewPusher(ctx, l, docker, pushSecret, outputDir)
+		imagePush, err := build.NewPusher(ctx, l, docker, pushSecret, outputDir)
 		if err != nil {
 			return err
 		}
-
 		builder, err := newBuilder(cmd, l)
 		if err != nil {
 			return err
 		}
+		snapshotPush := hooks.NewSnapshotPusher(l, gh)
+
 		params := &build.Params{
 			Owner:    owner,
 			Repo:     repo,
 			Ref:      sha,
-			Hermetic: defaultBranch,
+			Hermetic: defaultBranch && !rebuild,
 		}
 		result, err := builder.Build(ctx, params)
 		if result != nil {
@@ -90,8 +98,21 @@ var buildCmd = &cobra.Command{
 			return err
 		}
 
-		if defaultBranch {
-			if err := pusher.Push(ctx, params); err != nil {
+		if rebuild {
+			pushed, err := snapshotPush.Push(ctx, &hooks.SnapshotPushRequest{
+				RepoOwner:       owner,
+				RepoName:        repo,
+				Ref:             ref,
+				BaseTree:        branch.GetCommit().Commit.GetTree().GetSHA(),
+				ParentCommitSHA: branch.GetCommit().GetSHA(),
+				DefaultBranch:   defaultBranch,
+			}, result.Snapshot)
+			if err != nil {
+				return err
+			}
+			l.Info("rebuild complete", "pushed_snapshot", pushed)
+		} else if defaultBranch {
+			if err := imagePush.Push(ctx, params); err != nil {
 				return err
 			}
 		}
@@ -104,5 +125,6 @@ func init() {
 	flags.String(repoOwner, "thepwagner-org", "GitHub repository owner")
 	flags.StringP(repoName, "r", "sonarr", "GitHub repository name")
 	flags.String(repoRef, "main", "GitHub repository ref")
+	flags.Bool(rebuildFlag, false, "Rebuild image")
 	rootCmd.AddCommand(buildCmd)
 }
