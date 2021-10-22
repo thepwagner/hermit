@@ -136,6 +136,10 @@ func (l *Listener) BuildRequested(ctx context.Context, req *BuildRequest) error 
 		l.log.Info("pushed")
 	}
 
+	if err := l.builder.Cleanup(params); err != nil {
+		return err
+	}
+
 	if err := l.buildCheckRunComplete(ctx, req, "success", result); err != nil {
 		return err
 	}

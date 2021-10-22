@@ -163,6 +163,10 @@ func (b *Builder) Build(ctx context.Context, params *Params) (*Result, error) {
 	return res, nil
 }
 
+func (b *Builder) Cleanup(p *Params) error {
+	return os.RemoveAll(buildOutput(b.outputDir, p))
+}
+
 func buildOutput(outputDir string, p *Params) string {
 	return filepath.Join(outputDir, p.Owner, p.Repo, fmt.Sprintf("%s.img", p.Ref))
 }
