@@ -16,6 +16,7 @@ require (
 	github.com/mdlayher/vsock v0.0.0-20210303205602-10d591861736
 	github.com/moby/buildkit v0.9.0
 	github.com/opencontainers/runtime-spec v1.0.3-0.20200929063507-e6143ca7d51d
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/zerolog v1.25.0
 	github.com/screenleap/zerologr v1.1.2
 	github.com/sirupsen/logrus v1.8.1

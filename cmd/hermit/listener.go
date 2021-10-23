@@ -45,6 +45,10 @@ var listenerCmd = &cobra.Command{
 		scanner := build.NewScanner(l, ctr, outputDir)
 		snapshotPusher := hooks.NewSnapshotPusher(l, gh)
 
+		rebuilder := hooks.NewRebuilder(l, gh, builder, snapshotPusher)
+		rebuilder.Cron("0 3 * * *", "thepwagner-org", "trivy", "main")
+		rebuilder.Start()
+
 		h := hooks.NewListener(l, redis, gh, builder, scanner, pusher, snapshotPusher)
 		h.BuildListener(ctx)
 		return nil
