@@ -4,7 +4,7 @@ set -e
 source "$(dirname "$0")/_common"
 
 ROOT_IMG="${VM_DIR}/root.img"
-ROOT_IMAGE_SIZE=4G
+ROOT_IMAGE_SIZE=6G
 
 create_root_image() {
   rm -f "$ROOT_IMG"

@@ -80,6 +80,8 @@ func (s *Snapshotter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Snapshotter) captureResponse(w http.ResponseWriter, r *http.Request, key string) error {
+	log := s.log.WithValues("url", key)
+
 	// Direct proxy if not capturing
 	if !s.capturing {
 		s.proxy.ServeHTTP(w, r)
@@ -88,7 +90,7 @@ func (s *Snapshotter) captureResponse(w http.ResponseWriter, r *http.Request, ke
 
 	bufW := httptest.NewRecorder()
 	s.proxy.ServeHTTP(bufW, r)
-	s.log.Info("proxied request", "url", r.URL.String(), "status", bufW.Code)
+	log.Info("proxied request", "status", bufW.Code)
 	switch bufW.Code {
 	case http.StatusFound, http.StatusTemporaryRedirect, http.StatusPermanentRedirect:
 		if err := s.followRedirect(bufW, r); err != nil {
@@ -108,7 +110,7 @@ func (s *Snapshotter) captureResponse(w http.ResponseWriter, r *http.Request, ke
 		if err := s.storage.Store(data, bufW.Body.Bytes()); err != nil {
 			return err
 		}
-		s.log.Info("captured resource", "code", bufW.Code, "len", len(bufW.Body.Bytes()))
+		log.Info("captured resource", "code", bufW.Code, "len", len(bufW.Body.Bytes()))
 	}
 
 	h := w.Header()
