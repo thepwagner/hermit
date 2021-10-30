@@ -73,8 +73,8 @@ func LoadSnapshot(index string) (*Snapshot, error) {
 }
 
 func (s *Snapshot) Get(key string) *URLData {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.used[key] = struct{}{}
 	return s.Data[key]
 }
@@ -82,6 +82,10 @@ func (s *Snapshot) Get(key string) *URLData {
 func (s *Snapshot) Set(key string, data *URLData) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if data.StatusCode == http.StatusUnauthorized {
+		return
+	}
+
 	s.used[key] = struct{}{}
 	if _, ok := s.Data[key]; !ok {
 		// First seen, save
