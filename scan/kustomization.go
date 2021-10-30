@@ -2,6 +2,7 @@ package scan
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -35,11 +36,19 @@ func KustomizationFile(path string) (*Kustomization, error) {
 	}
 	defer f.Close()
 
-	var k Kustomization
-	if err := yaml.NewDecoder(f).Decode(&k); err != nil {
+	k, err := ParseKustomization(f)
+	if err != nil {
 		return nil, err
 	}
 	k.Path = path
+	return k, nil
+}
+
+func ParseKustomization(r io.Reader) (*Kustomization, error) {
+	var k Kustomization
+	if err := yaml.NewDecoder(r).Decode(&k); err != nil {
+		return nil, err
+	}
 	return &k, nil
 }
 

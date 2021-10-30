@@ -49,7 +49,7 @@ var listenerCmd = &cobra.Command{
 		rebuilder.Cron("0 3 * * *", "thepwagner-org", "trivy", "main")
 		rebuilder.Start()
 
-		h := hooks.NewListener(l, redis, gh, builder, scanner, pusher, snapshotPusher)
+		h := hooks.NewListener(l, redis, ctr, gh, builder, scanner, pusher, snapshotPusher)
 		h.BuildListener(ctx)
 		return nil
 	},

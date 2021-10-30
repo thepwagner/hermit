@@ -24,7 +24,7 @@ type Builder struct {
 	vm        *Firecracker
 	selfExe   string
 	runDir    string
-	outputDir string
+	OutputDir string
 }
 
 func NewBuilder(log logr.Logger, cloner *GitCloner, vm *Firecracker, outputDir string) (*Builder, error) {
@@ -37,14 +37,14 @@ func NewBuilder(log logr.Logger, cloner *GitCloner, vm *Firecracker, outputDir s
 		cloner:    cloner,
 		vm:        vm,
 		runDir:    "/mnt/run",
-		outputDir: outputDir,
+		OutputDir: outputDir,
 		selfExe:   selfExe,
 	}
 
 	if err := os.MkdirAll(b.runDir, 0750); err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(b.outputDir, 0750); err != nil {
+	if err := os.MkdirAll(b.OutputDir, 0750); err != nil {
 		return nil, err
 	}
 	return b, nil
@@ -82,7 +82,7 @@ func (b *Builder) Build(ctx context.Context, params *Params) (*Result, error) {
 	defer os.RemoveAll(buildTmp)
 
 	// Use outputDir instead of buildTmp, in case they are on different volumes
-	outputTmp, err := TempFile(b.outputDir, fmt.Sprintf("%s-*", params.Ref))
+	outputTmp, err := TempFile(b.OutputDir, fmt.Sprintf("%s-*", params.Ref))
 	if err != nil {
 		res.Summary = "could not create tempfile for output"
 		return res, err
@@ -136,7 +136,7 @@ func (b *Builder) Build(ctx context.Context, params *Params) (*Result, error) {
 	}
 
 	// Rename to the final name, and avoid the deferred deletion.
-	outputFile := buildOutput(b.outputDir, params)
+	outputFile := buildOutput(b.OutputDir, params)
 	if err := os.MkdirAll(filepath.Dir(outputFile), 0750); err != nil {
 		res.Summary = "build cleanup error"
 		return res, err
@@ -164,7 +164,7 @@ func (b *Builder) Build(ctx context.Context, params *Params) (*Result, error) {
 }
 
 func (b *Builder) Cleanup(p *Params) error {
-	return os.RemoveAll(buildOutput(b.outputDir, p))
+	return os.RemoveAll(buildOutput(b.OutputDir, p))
 }
 
 func buildOutput(outputDir string, p *Params) string {

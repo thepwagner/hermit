@@ -86,9 +86,8 @@ func (s *Server) OnPush(r *http.Request, payload []byte) error {
 		Tree:            pushEvt.GetHeadCommit().GetTreeID(),
 		Ref:             ref,
 		BuildCheckRunID: buildCheckRun.GetID(),
-
-		DefaultBranch: pushEvt.GetRef() == fmt.Sprintf("refs/heads/%s", repo.GetDefaultBranch()),
-		FromHermit:    pushEvt.GetSender().GetID() == s.botID,
+		DefaultBranch:   fmt.Sprintf("refs/heads/%s", repo.GetDefaultBranch()),
+		FromHermit:      pushEvt.GetSender().GetID() == s.botID,
 	})
 	if err != nil {
 		return err

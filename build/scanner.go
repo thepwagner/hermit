@@ -191,6 +191,56 @@ func RenderReport(r *report.Report) (string, error) {
 	return buf.String(), nil
 }
 
+type labeledReport struct {
+	*report.Report
+	Image string
+}
+
+var reportsMarkdown = template.Must(template.New("report").Parse(`
+# Scan Results
+
+{{range $image := .}}
+` + "`" + `{{$image.Image}} - {{$image.Metadata.ImageID}}` + "`" + `
+
+{{if $image.Metadata.OS}}
+{{$image.Metadata.OS.Family}} {{.Metadata.OS.Name}} {{if .Metadata.OS.Eosl}}⚠️ End of Life!{{end}}
+{{end}}
+{{range $result := $image.Results}}
+
+### {{$result.Type}}
+
+{{$result.Target}}
+
+{{if $result.Vulnerabilities}}
+⚠️ {{$result.Vulnerabilities | len}} fixable vulnerabilities found
+
+| Package | Version | FixedVersion | Severity | Description |
+|---------|---------|--------------|----------|-------------|
+{{range $result.Vulnerabilities}}| {{.PkgName}} | {{.InstalledVersion}} | {{.FixedVersion}} | {{.Severity}} | {{.Description}} |
+{{end}}
+{{else}}
+✅ All good!
+{{end}}
+
+{{end}}
+{{end}}
+`))
+
+func RenderReports(reports map[string]*report.Report) (string, error) {
+	labeled := make([]labeledReport, 0, len(reports))
+	for image, r := range reports {
+		sort.Slice(r.Results, func(i, j int) bool { return r.Results[i].Type < r.Results[j].Type })
+		labeled = append(labeled, labeledReport{Report: r, Image: image})
+	}
+	sort.Slice(labeled, func(i, j int) bool { return labeled[i].Image < labeled[j].Image })
+
+	var buf bytes.Buffer
+	if err := reportsMarkdown.Execute(&buf, labeled); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
 func fullID(ctx context.Context, c containerd.Container) string {
 	id := c.ID()
 	ns, ok := namespaces.Namespace(ctx)
