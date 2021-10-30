@@ -94,6 +94,12 @@ func (l *Listener) BuildRequested(ctx context.Context, req *BuildRequest) error 
 		return err
 	}
 
+	defer func() {
+		if err := l.builder.Cleanup(params); err != nil {
+			l.log.Error(err, "failed to clean up build")
+		}
+	}()
+
 	pushed, err := l.snapshotPusher.Push(ctx, &SnapshotPushRequest{
 		RepoOwner:       req.RepoOwner,
 		RepoName:        req.RepoName,
@@ -134,10 +140,6 @@ func (l *Listener) BuildRequested(ctx context.Context, req *BuildRequest) error 
 			return err
 		}
 		l.log.Info("pushed")
-	}
-
-	if err := l.builder.Cleanup(params); err != nil {
-		return err
 	}
 
 	if err := l.buildCheckRunComplete(ctx, req, "success", result); err != nil {
