@@ -3,13 +3,13 @@ module github.com/thepwagner/hermit
 go 1.17
 
 require (
-	github.com/aquasecurity/trivy v0.20.0
+	github.com/aquasecurity/trivy v0.20.2
 	github.com/bradleyfalzon/ghinstallation v1.1.1
 	github.com/containerd/containerd v1.5.4
 	github.com/docker/docker v20.10.9+incompatible
 	github.com/firecracker-microvm/firecracker-go-sdk v0.22.0
 	github.com/go-logr/logr v1.1.0
-	github.com/go-redis/redis/v8 v8.11.3
+	github.com/go-redis/redis/v8 v8.11.4
 	github.com/google/go-github/v39 v39.1.0
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/golang-lru v0.5.3
@@ -34,8 +34,8 @@ require (
 	github.com/Microsoft/hcsshim v0.8.18 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
-	github.com/aquasecurity/fanal v0.0.0-20211005172059-69527b46560c // indirect
-	github.com/aquasecurity/go-dep-parser v0.0.0-20210919151457-76db061b9305 // indirect
+	github.com/aquasecurity/fanal v0.0.0-20211014152324-29fbacfbfca4 // indirect
+	github.com/aquasecurity/go-dep-parser v0.0.0-20211013074621-eb58e8565220 // indirect
 	github.com/aquasecurity/trivy-db v0.0.0-20210916043317-726b7b72a47b // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535 // indirect
 	github.com/caarlos0/env/v6 v6.0.0 // indirect
