@@ -200,7 +200,7 @@ var reportsMarkdown = template.Must(template.New("report").Parse(`
 # Scan Results
 
 {{range $image := .}}
-` + "`" + `{{$image.Image}} - {{$image.Metadata.ImageID}}` + "`" + `
+` + "`" + `{{$image.Image}}` + "`" + `
 
 {{if $image.Metadata.OS}}
 {{$image.Metadata.OS.Family}} {{.Metadata.OS.Name}} {{if .Metadata.OS.Eosl}}⚠️ End of Life!{{end}}

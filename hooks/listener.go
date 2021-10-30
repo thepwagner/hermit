@@ -151,7 +151,7 @@ func (l *Listener) BuildRequested(ctx context.Context, req *BuildRequest) error 
 		return err
 	}
 
-	if err := l.reportScanResult(ctx, req.Ref, req, rendered); err != nil {
+	if err := l.reportScanResult(ctx, req, rendered); err != nil {
 		result.Summary = "scan error"
 		if err := l.buildCheckRunComplete(ctx, req, "failure", result); err != nil {
 			l.log.Error(err, "failed to update checkrun status")
@@ -284,7 +284,7 @@ func (l *Listener) monorepoBuild(ctx context.Context, req *BuildRequest) error {
 		return err
 	}
 
-	if err := l.reportScanResult(ctx, req.SHA, req, rendered); err != nil {
+	if err := l.reportScanResult(ctx, req, rendered); err != nil {
 		return err
 	}
 
@@ -340,14 +340,16 @@ func (l *Listener) scanImage(ctx context.Context, img string) (*report.Report, e
 	return l.scanner.Scan(ctx, imageTar)
 }
 
-func (l *Listener) reportScanResult(ctx context.Context, ref string, params *BuildRequest, rendered string) error {
+func (l *Listener) reportScanResult(ctx context.Context, params *BuildRequest, rendered string) error {
+	branchName := strings.TrimPrefix(params.Ref, "refs/heads/")
+	head := fmt.Sprintf("%s:%s", params.RepoOwner, branchName)
 	prs, _, err := l.gh.PullRequests.List(ctx, params.RepoOwner, params.RepoName, &github.PullRequestListOptions{
-		Head: ref,
+		Head: head,
 	})
 	if err != nil {
 		return err
 	}
-	l.log.Info("found prs", "prs", len(prs), "ref", ref)
+	l.log.Info("found prs", "prs", len(prs), "head", head)
 
 	for _, pr := range prs {
 		comments, _, err := l.gh.Issues.ListComments(ctx, params.RepoOwner, params.RepoName, pr.GetNumber(), &github.IssueListCommentsOptions{})
