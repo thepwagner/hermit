@@ -8,7 +8,7 @@ require (
 	github.com/containerd/containerd v1.5.4
 	github.com/docker/docker v20.10.9+incompatible
 	github.com/firecracker-microvm/firecracker-go-sdk v0.22.0
-	github.com/go-logr/logr v1.1.0
+	github.com/go-logr/logr v1.2.0
 	github.com/go-redis/redis/v8 v8.11.3
 	github.com/google/go-github/v39 v39.1.0
 	github.com/google/uuid v1.3.0
