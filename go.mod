@@ -12,7 +12,7 @@ require (
 	github.com/go-redis/redis/v8 v8.11.4
 	github.com/google/go-github/v39 v39.1.0
 	github.com/google/uuid v1.3.0
-	github.com/hashicorp/golang-lru v0.5.3
+	github.com/hashicorp/golang-lru v0.5.4
 	github.com/opencontainers/runtime-spec v1.0.3-0.20200929063507-e6143ca7d51d
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/zerolog v1.25.0
