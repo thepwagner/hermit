@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/aquasecurity/trivy v0.20.2
 	github.com/bradleyfalzon/ghinstallation v1.1.1
+	github.com/bradleyfalzon/ghinstallation/v2 v2.0.3
 	github.com/containerd/containerd v1.5.4
 	github.com/docker/docker v20.10.9+incompatible
 	github.com/firecracker-microvm/firecracker-go-sdk v0.22.0
