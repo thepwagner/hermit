@@ -4,12 +4,12 @@ go 1.17
 
 require (
 	github.com/aquasecurity/trivy v0.20.2
-	github.com/bradleyfalzon/ghinstallation v1.1.1
 	github.com/bradleyfalzon/ghinstallation/v2 v2.0.3
 	github.com/containerd/containerd v1.5.4
 	github.com/docker/docker v20.10.10+incompatible
 	github.com/firecracker-microvm/firecracker-go-sdk v0.22.0
-	github.com/go-logr/logr v1.1.0
+	github.com/go-logr/logr v1.2.0
+	github.com/go-logr/zerologr v1.2.0
 	github.com/go-redis/redis/v8 v8.11.4
 	github.com/google/go-github/v39 v39.1.0
 	github.com/google/uuid v1.3.0
@@ -17,7 +17,6 @@ require (
 	github.com/opencontainers/runtime-spec v1.0.3-0.20200929063507-e6143ca7d51d
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/zerolog v1.25.0
-	github.com/screenleap/zerologr v1.1.2
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.2.1
 	github.com/stretchr/testify v1.7.0
@@ -49,7 +48,6 @@ require (
 	github.com/containernetworking/cni v0.8.1 // indirect
 	github.com/containernetworking/plugins v0.9.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
@@ -71,10 +69,10 @@ require (
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
 	github.com/gogo/googleapis v1.4.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang-jwt/jwt/v4 v4.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-containerregistry v0.6.0 // indirect
-	github.com/google/go-github/v29 v29.0.2 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect

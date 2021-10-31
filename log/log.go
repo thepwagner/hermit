@@ -4,8 +4,8 @@ import (
 	"os"
 
 	"github.com/go-logr/logr"
+	"github.com/go-logr/zerologr"
 	"github.com/rs/zerolog"
-	"github.com/screenleap/zerologr"
 )
 
 func New() logr.Logger {
