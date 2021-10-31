@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/aquasecurity/trivy v0.20.2
 	github.com/bradleyfalzon/ghinstallation/v2 v2.0.3
-	github.com/containerd/containerd v1.5.4
+	github.com/containerd/containerd v1.5.7
 	github.com/docker/docker v20.10.10+incompatible
 	github.com/firecracker-microvm/firecracker-go-sdk v0.22.0
 	github.com/go-logr/logr v1.2.0
@@ -14,7 +14,7 @@ require (
 	github.com/google/go-github/v39 v39.1.0
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/golang-lru v0.5.4
-	github.com/opencontainers/runtime-spec v1.0.3-0.20200929063507-e6143ca7d51d
+	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/zerolog v1.25.0
 	github.com/sirupsen/logrus v1.8.1
@@ -31,13 +31,14 @@ require (
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible // indirect
 	github.com/Microsoft/go-winio v0.5.0 // indirect
-	github.com/Microsoft/hcsshim v0.8.18 // indirect
+	github.com/Microsoft/hcsshim v0.8.21 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/aquasecurity/fanal v0.0.0-20211014152324-29fbacfbfca4 // indirect
 	github.com/aquasecurity/go-dep-parser v0.0.0-20211013074621-eb58e8565220 // indirect
 	github.com/aquasecurity/trivy-db v0.0.0-20210916043317-726b7b72a47b // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535 // indirect
+	github.com/bits-and-blooms/bitset v1.2.0 // indirect
 	github.com/caarlos0/env/v6 v6.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/containerd/cgroups v1.0.1 // indirect
@@ -97,8 +98,8 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.2-0.20190823105129-775207bd45b6 // indirect
-	github.com/opencontainers/runc v1.0.0-rc93 // indirect
-	github.com/opencontainers/selinux v1.8.0 // indirect
+	github.com/opencontainers/runc v1.0.2 // indirect
+	github.com/opencontainers/selinux v1.8.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
