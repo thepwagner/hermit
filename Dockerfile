@@ -9,7 +9,7 @@ COPY . .
 ARG CGO_ENABLED=0
 RUN go build -o /hermit ./cmd/hermit
 
-FROM gcr.io/distroless/static:nonroot@sha256:07869abb445859465749913267a8c7b3b02dc4236fbc896e29ae859e4b360851
+FROM gcr.io/distroless/static:nonroot@sha256:bca3c203cdb36f5914ab8568e4c25165643ea9b711b41a8a58b42c80a51ed609
 COPY --from=builder /hermit /hermit
 USER nonroot:nonroot
 ENTRYPOINT [ "/hermit" ]
