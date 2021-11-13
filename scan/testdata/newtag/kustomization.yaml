@@ -4,4 +4,4 @@ resources:
 - deployment.yaml
 images:
   - name: redis
-    newTag: 6.2.6-alpine@sha256:58132ff3162cf9ecc8e2042c77b2ec46f6024c35e83bda3cabde76437406f8ac
+    newTag: 6.2.6-alpine@sha256:50fc99c529b81432a592fa76354783d7fc3ba479a92fc810cbf669138c4138b7
