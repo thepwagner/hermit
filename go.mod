@@ -3,7 +3,7 @@ module github.com/thepwagner/hermit
 go 1.17
 
 require (
-	github.com/aquasecurity/trivy v0.21.0
+	github.com/aquasecurity/trivy v0.21.1
 	github.com/bradleyfalzon/ghinstallation/v2 v2.0.3
 	github.com/containerd/containerd v1.5.8
 	github.com/docker/docker v20.10.11+incompatible
