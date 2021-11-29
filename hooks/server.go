@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/go-redis/redis/v8"
-	"github.com/google/go-github/v39/github"
+	"github.com/google/go-github/v41/github"
 )
 
 // Server listens to GitHub webhooks and dispatches work requests to the redis queue.
