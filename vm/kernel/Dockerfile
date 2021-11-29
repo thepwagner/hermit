@@ -1,1 +1,1 @@
-FROM registry.k8s.pwagner.net/library/hermit-vm-kernel:latest
+FROM registry.k8s.pwagner.net/library/hermit-vm-kernel:latest@sha256:0d10eab821a98672ec8b4a230b53d3d700df17ae7f90f2ee1a4a6a68fde17507
