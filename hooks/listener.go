@@ -16,7 +16,7 @@ import (
 	"github.com/containerd/containerd/platforms"
 	"github.com/go-logr/logr"
 	"github.com/go-redis/redis/v8"
-	"github.com/google/go-github/v39/github"
+	"github.com/google/go-github/v41/github"
 	"github.com/thepwagner/hermit/build"
 	"github.com/thepwagner/hermit/scan"
 )

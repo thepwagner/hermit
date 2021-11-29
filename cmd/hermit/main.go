@@ -8,7 +8,7 @@ import (
 	"github.com/containerd/containerd"
 	"github.com/go-logr/logr"
 	"github.com/go-redis/redis/v8"
-	"github.com/google/go-github/v39/github"
+	"github.com/google/go-github/v41/github"
 	"github.com/spf13/cobra"
 	"github.com/thepwagner/hermit/build"
 )

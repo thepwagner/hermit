@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/google/go-github/v39/github"
+	"github.com/google/go-github/v41/github"
 	"github.com/thepwagner/hermit/proxy"
 	"gopkg.in/yaml.v3"
 )
