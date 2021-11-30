@@ -28,9 +28,11 @@ func (s *RedisStorage) Load(data *URLData) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	// TODO: verify hashes, don't get pwned
 	return []byte(res), nil
 }
 
 func (s *RedisStorage) Store(data *URLData, content []byte) error {
+	// TODO: should this trust hashes?
 	return s.redis.Set(context.TODO(), s.key(data), content, 0).Err()
 }
