@@ -20,7 +20,7 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.3.0
 	github.com/stretchr/testify v1.7.0
-	golang.org/x/crypto v0.0.0-20211209193657-4570a0811e8b
+	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
 	gopkg.in/src-d/go-git.v4 v4.13.1
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )
