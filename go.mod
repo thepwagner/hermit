@@ -16,11 +16,11 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/rs/zerolog v1.26.0
+	github.com/rs/zerolog v1.26.1
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.3.0
 	github.com/stretchr/testify v1.7.0
-	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
+	golang.org/x/crypto v0.0.0-20211215165025-cf75a172585e
 	gopkg.in/src-d/go-git.v4 v4.13.1
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )
