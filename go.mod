@@ -3,7 +3,7 @@ module github.com/thepwagner/hermit
 go 1.17
 
 require (
-	github.com/aquasecurity/trivy v0.24.0
+	github.com/aquasecurity/trivy v0.24.1
 	github.com/bradleyfalzon/ghinstallation/v2 v2.0.4
 	github.com/containerd/containerd v1.5.9
 	github.com/docker/docker v20.10.12+incompatible
@@ -35,8 +35,8 @@ require (
 	github.com/Microsoft/hcsshim v0.9.2 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
-	github.com/aquasecurity/fanal v0.0.0-20220221141823-58a5d668e45f // indirect
-	github.com/aquasecurity/go-dep-parser v0.0.0-20211224170007-df43bca6b6ff // indirect
+	github.com/aquasecurity/fanal v0.0.0-20220225095822-ef150f781751 // indirect
+	github.com/aquasecurity/go-dep-parser v0.0.0-20220224134419-e4f58c60089e // indirect
 	github.com/aquasecurity/trivy-db v0.0.0-20220130223604-df65ebde46f4 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535 // indirect
 	github.com/bits-and-blooms/bitset v1.2.0 // indirect
