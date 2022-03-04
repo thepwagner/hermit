@@ -12,6 +12,7 @@ require (
 	github.com/go-logr/zerologr v1.2.1
 	github.com/go-redis/redis/v8 v8.11.4
 	github.com/google/go-github/v42 v42.0.0
+	github.com/google/go-github/v43 v43.0.0
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417
