@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/aquasecurity/trivy/pkg/report"
+	"github.com/aquasecurity/trivy/pkg/types"
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/images/archive"
 	"github.com/containerd/containerd/platforms"
@@ -264,7 +264,7 @@ func (l *Listener) monorepoBuild(ctx context.Context, req *BuildRequest) error {
 	}
 	l.log.Info("identified images", "images", len(images), "kustomizations", len(kustomizations))
 
-	scanResults := make(map[string]*report.Report)
+	scanResults := make(map[string]*types.Report)
 	for _, i := range images {
 		img := i.Image()
 		scan, err := l.scanImage(ctx, img)
@@ -294,7 +294,7 @@ func (l *Listener) monorepoBuild(ctx context.Context, req *BuildRequest) error {
 	return nil
 }
 
-func (l *Listener) scanImage(ctx context.Context, img string) (*report.Report, error) {
+func (l *Listener) scanImage(ctx context.Context, img string) (*types.Report, error) {
 	imgHash := sha256.Sum256([]byte(img))
 	imageTar := filepath.Join(l.builder.OutputDir, "scan-images", fmt.Sprintf("%x", imgHash), "image.tar")
 

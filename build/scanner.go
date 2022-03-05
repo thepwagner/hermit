@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"text/template"
 
-	"github.com/aquasecurity/trivy/pkg/report"
+	"github.com/aquasecurity/trivy/pkg/types"
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/cio"
 	"github.com/containerd/containerd/namespaces"
@@ -38,7 +38,7 @@ func NewScanner(log logr.Logger, containerd *containerd.Client, outputDir string
 	}
 }
 
-func (s *Scanner) ScanBuildOutput(ctx context.Context, params *Params) (*report.Report, error) {
+func (s *Scanner) ScanBuildOutput(ctx context.Context, params *Params) (*types.Report, error) {
 	outputImg := buildOutput(s.outputDir, params)
 	s.log.Info("mounting output volume for scan", "img", outputImg)
 	mnt, err := MountVolume(ctx, outputImg, "")
@@ -50,7 +50,7 @@ func (s *Scanner) ScanBuildOutput(ctx context.Context, params *Params) (*report.
 	return s.Scan(ctx, filepath.Join(mnt.Path(), "image.tar"))
 }
 
-func (s *Scanner) Scan(ctx context.Context, targetImage string) (*report.Report, error) {
+func (s *Scanner) Scan(ctx context.Context, targetImage string) (*types.Report, error) {
 	ctr, err := s.startContainer(ctx, targetImage)
 	if err != nil {
 		return nil, fmt.Errorf("creating container: %w", err)
@@ -69,7 +69,7 @@ func (s *Scanner) Scan(ctx context.Context, targetImage string) (*report.Report,
 	case <-statusCh:
 	}
 
-	var r report.Report
+	var r types.Report
 	if err := json.NewDecoder(ctr.stdout).Decode(&r); err != nil {
 		log.Error().Str("out", "stderr").Msg(ctr.stderr.String())
 		log.Error().Str("out", "stdout").Msg(ctr.stdout.String())
@@ -181,7 +181,7 @@ var reportMarkdown = template.Must(template.New("report").Parse(`
 {{end}}
 `))
 
-func RenderReport(r *report.Report) (string, error) {
+func RenderReport(r *types.Report) (string, error) {
 	sort.Slice(r.Results, func(i, j int) bool { return r.Results[i].Type < r.Results[j].Type })
 
 	var buf bytes.Buffer
@@ -192,7 +192,7 @@ func RenderReport(r *report.Report) (string, error) {
 }
 
 type labeledReport struct {
-	*report.Report
+	*types.Report
 	Image string
 }
 
@@ -226,7 +226,7 @@ var reportsMarkdown = template.Must(template.New("report").Parse(`
 {{end}}
 `))
 
-func RenderReports(reports map[string]*report.Report) (string, error) {
+func RenderReports(reports map[string]*types.Report) (string, error) {
 	labeled := make([]labeledReport, 0, len(reports))
 	for image, r := range reports {
 		sort.Slice(r.Results, func(i, j int) bool { return r.Results[i].Type < r.Results[j].Type })
