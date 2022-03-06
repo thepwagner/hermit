@@ -1,1 +1,1 @@
-FROM registry.k8s.pwagner.net/library/hermit-vm-root:latest@sha256:25fbaa47a2d31984ec54c0b90d472d51e7bd3a449652333ddd727d038ddf2d1b
+FROM registry.k8s.pwagner.net/library/hermit-vm-root:latest@sha256:73a795c6cbcfb2cf931c31ad6716d2f5f52fce837494be4f9a1abf85ee3a14cc
