@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/aquasecurity/trivy/pkg/report"
+	"github.com/aquasecurity/trivy/pkg/types"
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/images/archive"
 	"github.com/containerd/containerd/namespaces"
@@ -73,7 +73,7 @@ var scanCmd = &cobra.Command{
 	},
 }
 
-func scanImage(ctx context.Context, log logr.Logger, ctr *containerd.Client, scanner *build.Scanner, img string) (*report.Report, error) {
+func scanImage(ctx context.Context, log logr.Logger, ctr *containerd.Client, scanner *build.Scanner, img string) (*types.Report, error) {
 	imgHash := sha256.Sum256([]byte(img))
 	imageTar := filepath.Join(outputDir, "scan-images", fmt.Sprintf("%x", imgHash), "image.tar")
 

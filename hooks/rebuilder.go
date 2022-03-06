@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	"github.com/google/go-github/v42/github"
+	"github.com/google/go-github/v43/github"
 	"github.com/robfig/cron/v3"
 	"github.com/thepwagner/hermit/build"
 )

@@ -4,18 +4,18 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/aquasecurity/trivy/pkg/report"
+	"github.com/aquasecurity/trivy/pkg/types"
 	"github.com/stretchr/testify/require"
 	"github.com/thepwagner/hermit/build"
 )
 
 func TestRenderReports(t *testing.T) {
-	reports := map[string]*report.Report{
+	reports := map[string]*types.Report{
 		"foo": {
-			Metadata: report.Metadata{
+			Metadata: types.Metadata{
 				ImageID: "sha256:foobar",
 			},
-			Results: []report.Result{
+			Results: []types.Result{
 				{},
 			},
 		},
