@@ -29,7 +29,7 @@ func (f *Firecracker) bootVM(ctx context.Context, buildTmp, vmRoot, inVolume, ou
 		MachineCfg: models.MachineConfiguration{
 			VcpuCount:  firecracker.Int64(4),
 			MemSizeMib: firecracker.Int64(2048),
-			HtEnabled:  firecracker.Bool(true),
+			Smt:        firecracker.Bool(true),
 		},
 		VsockDevices: []firecracker.VsockDevice{
 			{
