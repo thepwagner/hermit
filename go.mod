@@ -6,7 +6,7 @@ require (
 	github.com/aquasecurity/trivy v0.24.2
 	github.com/bradleyfalzon/ghinstallation/v2 v2.0.4
 	github.com/containerd/containerd v1.6.1
-	github.com/docker/docker v20.10.12+incompatible
+	github.com/docker/docker v20.10.12+incompatible+incompatible
 	github.com/firecracker-microvm/firecracker-go-sdk v0.22.1-0.20220302172044-565c88a871e2
 	github.com/go-logr/logr v1.2.2
 	github.com/go-logr/zerologr v1.2.1
