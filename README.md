@@ -3,7 +3,7 @@
 Hermit is an experimental CI server for building container images from GitHub repositories. Hermit's schtick is to run builds in ephemeral virtual machines that are limited to HTTP/HTTPS network connections through a custom proxy.
 The idea was to satisfy the [Hermetic requirement from SLSA level 4](https://slsa.dev/requirements#build-requirements), without requiring purpose-built build tools (e.g. bazel). Hermit runs existing build tools, and locks them to a fixed snapshot of the internet.
 
-Hermit was designed to run on my home infra, and is not intended to be used.
+Hermit was designed to run on my home infra, and is not intended to be used. It was a cool experiment that is no longer used or maintained.
 
 Hermit's proxy has several features:
 
